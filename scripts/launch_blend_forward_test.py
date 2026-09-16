@@ -1664,6 +1664,14 @@ def wire_connection_reliability(connection_manager):
 _HEALTH_JSON_PATH = PROJECT_ROOT / "data" / "forward_test_health.json"
 _OVERSEER_STATE_PATH = PROJECT_ROOT / "data" / "overseer_state.json"
 _SYSTEMD_UNIT_NAME = "ayumi-forward-test.service"
+# Card 080094ef r2: in-process exit record. The systemd unit's live
+# ``Result=``/``ExecMainStatus`` describe the CURRENT activation (which is
+# ``success``/0 after ``Restart=always`` reactivation), not the prior exit
+# that triggered the restart. Writing our own exit record at known exit
+# sites gives a source of truth that survives the reactivation. Without
+# this, a crash followed by successful reactivation is mis-classified as
+# ``clean_24h_rotation`` (Rin HIGH finding, comment b27b6a40).
+_LAST_EXIT_RECORD_PATH = PROJECT_ROOT / "data" / "forward_test_last_exit.json"
 _RESTART_REASON_LABELS = {
     "success": "clean_24h_rotation",
     "exit-code": "launch_failure",
@@ -1677,25 +1685,49 @@ _RESTART_REASON_LABELS = {
 def _read_systemd_restart_status(unit: str = _SYSTEMD_UNIT_NAME) -> dict:
     """Read the systemd unit's restart counter + last-exit metadata.
 
-    Returns a dict with keys ``n_restarts`` (int), ``last_restart_at`` (ISO-8601
-    UTC string or None), ``last_result`` (raw systemd ``Result=`` value), and
-    ``last_exit_code`` (parsed int or None). Never raises — systemctl is
-    unavailable in some test/dev environments and the caller must always
-    receive a fully-populated dict with safe defaults.
+    Returns a dict with keys:
+
+      * ``n_restarts`` (int) — ``systemctl show -p NRestarts``
+      * ``last_restart_at`` (ISO-8601 UTC string or None)
+      * ``last_result`` (raw systemd ``Result=`` value, or a synthesized
+        value from the recorded exit — see ``exit_source``)
+      * ``last_exit_code`` (parsed int or None — sourced from
+        ``ExecMainStatus`` for the live path, or from the recorded exit)
+      * ``exit_source`` — ``"recorded"`` (in-process exit record written
+        by ``_record_last_exit`` at known exit sites; **source of truth**
+        for what actually triggered the prior restart), ``"live"`` (the
+        live systemd unit properties, which describe the CURRENT
+        activation after ``Restart=always`` reactivation and can mask the
+        prior crash as ``success``/0), or ``"none"`` (no record exists
+        and ``systemctl`` was unavailable).
+      * ``last_exit_triggered_by``, ``last_exit_signal_name``,
+        ``last_exit_detail``, ``last_exit_at`` — populated when
+        ``exit_source == "recorded"``.
+
+    Never raises — ``systemctl`` is unavailable in some test/dev
+    environments and the caller must always receive a fully-populated
+    dict with safe defaults.
+
+    Card 080094ef r2 (Rin HIGH, comment b27b6a40): the recorded exit is
+    the authoritative source for "why did the previous activation end"
+    because the live unit's ``Result=success, ExecMainStatus=0`` describe
+    the CURRENT run (after Restart=always reactivation), not the prior
+    crash. A crash followed by successful reactivation would otherwise
+    be mis-classified as ``clean_24h_rotation``.
+
+    For untrapped signals (``SIGKILL``, ``SIGABRT``, ``SIGSEGV``) the
+    process dies before our in-process recorder can write — those exits
+    only appear in the systemd journal. We chain ``recorded`` →
+    ``journal`` (excluding current MainPID) → ``live`` so both caught
+    and uncaught exits are classified correctly.
 
     Implementation: shells out to ``systemctl show <unit> -p NRestarts,
-    -p ActiveEnterTimestamp, -p Result, -p ExecMainStatus`` with a 1s
-    timeout. Output is key=value lines; values are split on the first ``=``
-    and stripped. ``ExecMainStatus`` is the systemd-reported status code for
-    the main process (e.g. ``2/INVALIDARGUMENT``); the leading integer is
-    captured as ``last_exit_code`` for classification.
-
-    Card 080094ef context: the forward-test service accumulates restart
-    counter ticks every time ``Restart=always`` fires (which is every
-    exit, including exit 0 from the clean-shutdown signal handler).
-    Without this observability, operators cannot distinguish "daily 24h
-    rotation" from "uncaught exit from a script bug" — both look the
-    same in the systemd restart counter.
+    -p MainPID, -p ActiveEnterTimestamp, -p Result, -p ExecMainStatus``
+    with a 1s timeout. Output is key=value lines; values are split on
+    the first ``=`` and stripped. ``ExecMainStatus`` is the
+    systemd-reported status code for the main process (e.g.
+    ``2/INVALIDARGUMENT``); the leading integer is captured as
+    ``last_exit_code`` for classification.
     """
     import subprocess as _sp
     out: dict = {
@@ -1703,85 +1735,215 @@ def _read_systemd_restart_status(unit: str = _SYSTEMD_UNIT_NAME) -> dict:
         "last_restart_at": None,
         "last_result": "unknown",
         "last_exit_code": None,
+        "exit_source": "none",
+        "main_pid": None,
+        "last_exit_triggered_by": None,
+        "last_exit_signal_name": None,
+        "last_exit_detail": None,
+        "last_exit_at": None,
     }
     try:
         proc = _sp.run(  # noqa: S603 — fully-controlled argv, check=False, timeout=1s; unit name is module constant.
             ["/usr/bin/systemctl", "show", unit,
              "-p", "NRestarts",
+             "-p", "MainPID",
              "-p", "ActiveEnterTimestamp",
              "-p", "Result",
              "-p", "ExecMainStatus"],
             capture_output=True, text=True, timeout=1.0, check=False,
         )
     except (FileNotFoundError, _sp.TimeoutExpired, OSError):
-        return out
-    if proc.returncode != 0:
-        return out
-    for line in proc.stdout.splitlines():
-        if "=" not in line:
-            continue
-        key, _, value = line.partition("=")
-        key = key.strip()
-        value = value.strip()
-        if key == "NRestarts":
-            try:
-                out["n_restarts"] = int(value)
-            except ValueError:
-                pass
-        elif key == "ActiveEnterTimestamp":
-            # systemctl timestamp format: "Tue 2026-09-15 21:27:17 UTC"
-            # or "[not set]". Parse the human form only if it matches.
-            if value and value != "[not set]":
-                try:
-                    _ts = datetime.strptime(value, "%a %Y-%m-%d %H:%M:%S %Z").replace(tzinfo=timezone.utc)
-                    out["last_restart_at"] = _ts.isoformat()
-                except ValueError:
-                    out["last_restart_at"] = None
-        elif key == "Result":
-            out["last_result"] = value or "unknown"
-        elif key == "ExecMainStatus":
-            # Format: "2/INVALIDARGUMENT" or "0/SUCCESS" or "[not set]"
-            head = value.split("/", 1)[0].strip()
-            try:
-                out["last_exit_code"] = int(head)
-            except ValueError:
-                out["last_exit_code"] = None
+        pass
+    else:
+        if proc.returncode == 0:
+            for line in proc.stdout.splitlines():
+                if "=" not in line:
+                    continue
+                key, _, value = line.partition("=")
+                key = key.strip()
+                value = value.strip()
+                if key == "NRestarts":
+                    try:
+                        out["n_restarts"] = int(value)
+                    except ValueError:
+                        pass
+                elif key == "MainPID":
+                    try:
+                        out["main_pid"] = int(value) if value and value != "0" else None
+                    except ValueError:
+                        pass
+                elif key == "ActiveEnterTimestamp":
+                    # systemctl timestamp format: "Tue 2026-09-15 21:27:17 UTC"
+                    # or "[not set]". Parse the human form only if it matches.
+                    if value and value != "[not set]":
+                        try:
+                            _ts = datetime.strptime(value, "%a %Y-%m-%d %H:%M:%S %Z").replace(tzinfo=timezone.utc)
+                            out["last_restart_at"] = _ts.isoformat()
+                        except ValueError:
+                            out["last_restart_at"] = None
+                elif key == "Result":
+                    out["last_result"] = value or "unknown"
+                elif key == "ExecMainStatus":
+                    # Format: "2/INVALIDARGUMENT" or "0/SUCCESS" or "[not set]"
+                    head = value.split("/", 1)[0].strip()
+                    try:
+                        out["last_exit_code"] = int(head)
+                    except ValueError:
+                        out["last_exit_code"] = None
+
+    # Card 080094ef r2: prefer the recorded exit (in-process, source of
+    # truth for the prior exit) over the live systemd unit state. The
+    # live state describes the CURRENT activation; after Restart=always
+    # reactivation it is "success"/0 regardless of what the prior
+    # activation actually exited with.
+    recorded = _read_last_exit_record()
+    if recorded is not None:
+        out["exit_source"] = "recorded"
+        out["last_exit_triggered_by"] = recorded.get("triggered_by")
+        out["last_exit_signal_name"] = recorded.get("signal_name")
+        out["last_exit_detail"] = recorded.get("detail")
+        out["last_exit_at"] = recorded.get("exit_at")
+        out["last_exit_code"] = recorded.get("exit_code")
+        # Synthesize ``last_result`` so the classifier can route based on
+        # the recorded exit's nature (signal vs explicit code). The
+        # classifier below (``_classify_restart_reason``) reads
+        # ``exit_source`` directly and dispatches accordingly; we only set
+        # ``last_result`` here for backwards-compatible callers / debug
+        # introspection.
+        triggered_by = out["last_exit_triggered_by"]
+        if triggered_by == "signal":
+            out["last_result"] = "recorded-signal"
+        elif triggered_by in ("sys_exit", "atexit", "exception"):
+            out["last_result"] = "recorded-exit-code"
+    else:
+        # No recorded file — fall through to the journal query. The
+        # journal covers untrapped signals (SIGKILL, SIGABRT, SIGSEGV)
+        # where the process dies before our recorder runs. We exclude
+        # the current MainPID so the CURRENT activation's log entries
+        # don't mask the prior activation's exit.
+        journal = _read_journal_last_exit(unit, exclude_pid=out.get("main_pid"))
+        if journal is not None:
+            out["exit_source"] = "journal"
+            out["last_exit_triggered_by"] = journal.get("triggered_by")
+            out["last_exit_signal_name"] = journal.get("signal_name")
+            out["last_exit_detail"] = journal.get("detail")
+            out["last_exit_at"] = journal.get("exit_at")
+            out["last_exit_code"] = journal.get("exit_code")
+            triggered_by = out["last_exit_triggered_by"]
+            if triggered_by == "signal":
+                out["last_result"] = "journal-signal"
+            else:
+                out["last_result"] = "journal-exit-code"
+        elif out["last_result"] != "unknown" or out["last_exit_code"] is not None:
+            out["exit_source"] = "live"
+
     return out
 
 
-def _classify_restart_reason(last_result: str, last_exit_code: int | None) -> str:
-    """Map a systemd ``Result=`` value + raw exit code to a stable reason label.
+def _classify_restart_reason(sd_status: dict) -> str:
+    """Map the recorded/live systemd exit state to a stable reason label.
 
-    Card 080094ef: the reason label makes the restart counter self-documenting
-    in the health JSON. Label priority:
+    Card 080094ef r2: takes the full ``sd_status`` dict from
+    ``_read_systemd_restart_status`` so it can dispatch on the recorded
+    exit source (in-process truth) versus the live systemd unit state
+    (which describes the CURRENT activation, not the prior exit that
+    triggered the restart). After a crash followed by successful
+    ``Restart=always`` reactivation, the live state is
+    ``Result=success, ExecMainStatus=0`` — that path masks the prior
+    crash as ``clean_24h_rotation`` (Rin HIGH finding).
 
-      1. ``watchdog`` if the unit was killed by systemd watchdog (infinite-loop
-         guard fired).
-      2. ``signal`` if the main process exited via an unhandled signal
-         (systemd ``Result=signal``).
-      3. ``core-dump`` for core-dump exits (operator alert).
-      4. ``clean_24h_rotation`` for exit 0 (the proactive rotation path:
-         signal handler → engine.stop() → sys.exit(0); Restart=always then
-         re-launches, so the counter ticks every cycle, which is expected
-         behaviour and not a fault — see card 7d3b535d for the rotation
-         provenance, and ``docs/diagnoses/forward-test-restarts-2026-09-15.md``
-         for the BENIGN classification).
-      5. ``foreign_uid_signal_stats`` if exit code 2 (the script's pre-launch
-         signal_stats foreign-UID guard — see card a38b853d and
-         ``_check_signal_stats_uid`` above; this is the Sep 11 anomaly path).
-      6. ``pid_guard_duplicate`` if exit code 1 AND the unit just started
-         quickly (PID-guard contention from the previous failed process —
-         see diagnosis §5.3).
-      7. ``engine_start_failure`` if exit code 1 after the retry loop
-         (5 attempts exhausted — see ``_STARTUP_RETRY_ATTEMPTS``).
-      8. ``unknown_exit_<n>`` for any other exit code, so an unknown failure
-         mode is visible in the health JSON instead of being silently
-         classified as ``clean_24h_rotation``.
+    Dispatch:
 
-    Returns a non-empty string label. ``last_exit_code`` of ``None`` (no
-    ExecMainStatus yet — service has never been started under systemd) maps
-    to ``"pre_startup"``.
+      * ``exit_source in {"recorded", "journal"}``: classify based on what
+        the prior activation ACTUALLY exited with:
+
+          - ``triggered_by="signal"`` + ``exit_code=0``: our SIGTERM/SIGINT
+            handler ran and exited cleanly → ``clean_24h_rotation`` (the
+            proactive-24h rotation path, see card 7d3b535d).
+          - ``triggered_by="signal"`` + non-zero exit: abnormal signal-path
+            shutdown → ``external_signal_termination``.
+          - ``triggered_by="sys_exit"`` + ``exit_code=0``: explicit clean
+            stop → ``clean_24h_rotation``.
+          - ``triggered_by="sys_exit"`` + ``exit_code=1``: engine-start
+            failure / paper-on-live rejection → ``pid_guard_or_launch_failure``.
+          - ``triggered_by="sys_exit"`` + ``exit_code=2``: foreign-UID
+            signal_stats guard → ``foreign_uid_signal_stats``.
+          - ``triggered_by="sys_exit"`` + other code → ``unknown_exit_<n>``.
+          - ``triggered_by="atexit"`` + ``exit_code=0``: implicit clean
+            stop → ``clean_24h_rotation``.
+          - ``triggered_by="exception"``: uncaught exception in ``main()``;
+            label preserves the exit code so the operator can correlate
+            against the traceback.
+          - ``triggered_by="journal"`` (only when ``exit_source == "journal"``):
+            durable record from ``journalctl``; shape matches recorded and
+            uses the same routing above.
+
+      * ``exit_source == "live"`` (fallback, no recorded file): the live
+        systemd properties describe the most-recent activation's result.
+        Reliable only when the unit is currently INACTIVE. For active
+        units this is unreliable (see above) but is the best signal
+        available, so we keep the r1 priority-ordered classifier.
+
+          - ``watchdog`` → ``watchdog_timeout``.
+          - ``signal`` → ``external_signal_termination``.
+          - ``core-dump`` → ``core_dump``.
+          - ``last_exit_code is None`` → ``pre_startup``.
+          - ``last_exit_code == 0`` → ``clean_24h_rotation``.
+          - ``last_exit_code == 2`` → ``foreign_uid_signal_stats``.
+          - ``last_exit_code == 1`` → ``pid_guard_or_launch_failure``.
+          - other → ``unknown_exit_<n>``.
+
+    Returns a non-empty string label.
     """
+    exit_source = sd_status.get("exit_source", "live")
+
+    if exit_source in ("recorded", "journal"):
+        triggered_by = sd_status.get("last_exit_triggered_by")
+        exit_code = sd_status.get("last_exit_code")
+
+        # Our SIGTERM/SIGINT handler ran and exited cleanly via
+        # sys.exit(0) — the proactive-24h rotation path.
+        if triggered_by == "signal" and exit_code == 0:
+            return "clean_24h_rotation"
+        # Signal from our handler but with non-zero exit — abnormal.
+        if triggered_by == "signal":
+            return "external_signal_termination"
+
+        # Explicit sys.exit(N) calls in main():
+        # - N=0 is the clean-rotation path
+        # - N=1 is paper-on-live rejection OR engine-start failure
+        # - N=2 is foreign-UID signal_stats rejection
+        if triggered_by == "sys_exit":
+            if exit_code == 0:
+                return "clean_24h_rotation"
+            if exit_code == 1:
+                return "pid_guard_or_launch_failure"
+            if exit_code == 2:
+                return "foreign_uid_signal_stats"
+            return f"unknown_exit_{exit_code}"
+
+        # atexit hook (catches sys.exit paths not wrapped explicitly).
+        if triggered_by == "atexit":
+            if exit_code == 0:
+                return "clean_24h_rotation"
+            return f"unknown_exit_{exit_code}"
+
+        # Uncaught exception path (finally block recorded this).
+        if triggered_by == "exception":
+            code_part = (
+                f"_{exit_code}" if exit_code is not None else "_unknown"
+            )
+            return f"uncaught_exception_exit{code_part}"
+
+        # Recorded but triggered_by is unrecognized — fall through to live.
+
+    # Fallback: live systemd properties. Used only when no recorded
+    # exit exists (e.g. first-ever start, or a crash that bypassed all
+    # our recording sites). The r1 priority-ordered classifier lives
+    # here.
+    last_result = sd_status.get("last_result", "unknown")
+    last_exit_code = sd_status.get("last_exit_code")
+
     if last_result == "watchdog":
         return "watchdog_timeout"
     if last_result == "signal":
@@ -1797,6 +1959,183 @@ def _classify_restart_reason(last_result: str, last_exit_code: int | None) -> st
     if last_exit_code == 1:
         return "pid_guard_or_launch_failure"
     return f"unknown_exit_{last_exit_code}"
+
+
+def _signal_name_for(signum: int) -> str:
+    """Map a numeric signal to its canonical name (e.g. ``SIGTERM``).
+
+    Falls back to ``"SIG_<n>"`` if the platform does not declare the signal
+    (some rare signals are Linux-only). Never raises.
+    """
+    try:
+        return sig_module.Signals(signum).name
+    except (ValueError, AttributeError):
+        return f"SIG_{signum}"
+
+
+def _record_last_exit(
+    exit_code: int,
+    triggered_by: str,
+    *,
+    signal_name: str | None = None,
+    detail: str | None = None,
+) -> None:
+    """Persist the most-recent process exit to ``data/forward_test_last_exit.json``.
+
+    Called at every known exit site in ``main()`` (signal handlers,
+    ``sys.exit(...)`` calls, and the catch-all ``except Exception`` block)
+    so a subsequent restart cycle can classify the prior exit by what
+    ACTUALLY happened — not by the live systemd unit's ``Result=success,
+    ExecMainStatus=0`` (which describes the CURRENT activation, after
+    ``Restart=always`` reactivation, not the prior crash that triggered
+    the restart).
+
+    Never raises — a failure to write the record must never break the
+    shutdown sequence. Matches the defensive posture of the health/overseer
+    writers in this module.
+
+    Args:
+        exit_code: numeric exit code passed to ``sys.exit`` or signal handler.
+        triggered_by: one of ``"signal"`` (caught by our SIGTERM/SIGINT
+            handler), ``"sys_exit"`` (explicit ``sys.exit(N)`` call), or
+            ``"exception"`` (uncaught exception in ``main()``).
+        signal_name: optional signal name when ``triggered_by == "signal"``.
+        detail: optional human-readable detail (e.g. ``"engine_start_failure"``).
+    """
+    try:
+        rec = {
+            "exit_code": int(exit_code),
+            "triggered_by": str(triggered_by),
+            "signal_name": signal_name,
+            "detail": detail,
+            "exit_at": datetime.now(timezone.utc).isoformat(),
+            "pid": os.getpid(),
+        }
+        _LAST_EXIT_RECORD_PATH.parent.mkdir(parents=True, exist_ok=True)
+        tmp = _LAST_EXIT_RECORD_PATH.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(rec, indent=2) + "\n")
+        os.replace(str(tmp), _LAST_EXIT_RECORD_PATH)
+    except Exception as _rec_exc:
+        # WARNING level only — recording failure must never propagate.
+        logger.warning(
+            "Failed to record last exit (code=%s, by=%s): %s",
+            exit_code, triggered_by, _rec_exc,
+        )
+
+
+def _read_last_exit_record() -> dict | None:
+    """Read the most-recent recorded exit, or ``None`` if absent/corrupt.
+
+    Never raises — returns ``None`` on any read/parse error so the caller
+    always has a usable value. The dict shape matches what
+    ``_record_last_exit`` writes.
+    """
+    try:
+        if not _LAST_EXIT_RECORD_PATH.exists():
+            return None
+        raw = json.loads(_LAST_EXIT_RECORD_PATH.read_text())
+        if not isinstance(raw, dict):
+            return None
+        return raw
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
+def _read_journal_last_exit(
+    unit: str,
+    *,
+    exclude_pid: int | None = None,
+    timeout_s: float = 2.0,
+) -> dict | None:
+    """Query journalctl for the last completed activation of the unit.
+
+    Card 080094ef r2 (Rin HIGH): the recording approach covers caught
+    signals (``SIGTERM``/``SIGINT``), ``sys.exit(...)`` paths, and uncaught
+    exceptions, but NOT untrapped signals (``SIGKILL``, ``SIGABRT``,
+    ``SIGSEGV``) — for those, the process dies before our handler can
+    record anything. After ``Restart=always`` reactivation, the live unit
+    state is ``Result=success, ExecMainStatus=0`` which masks the prior
+    crash.
+
+    The journal is the durable record. ``systemd`` writes lines like
+    ``Main process exited, code=exited, status=2/INVALIDARGUMENT`` or
+    ``Main process exited, code=killed, status=6/ABRT`` on every service
+    exit. We scan recent entries for this unit (excluding the current
+    ``MainPID``, which describes the CURRENT activation) and return the
+    most recent exit. This complements the in-process record: together,
+    recorded + journal cover both caught and uncaught exits.
+
+    Returns a dict matching ``_read_last_exit_record()``'s shape, or
+    ``None`` if journalctl is unavailable, returns no usable entries, or
+    no prior activation can be distinguished from the current one.
+
+    Never raises — all filesystem / subprocess errors are swallowed.
+    """
+    import re as _re_jrnl
+    import subprocess as _sp_jrnl
+    try:
+        proc = _sp_jrnl.run(  # noqa: S603 — fully-controlled argv, check=False, timeout=timeout_s
+            ["/usr/bin/journalctl",
+             f"_SYSTEMD_UNIT={unit}",
+             "--no-pager", "-n", "200", "-o", "json"],
+            capture_output=True, text=True, timeout=timeout_s, check=False,
+        )
+    except (FileNotFoundError, _sp_jrnl.TimeoutExpired, OSError):
+        return None
+    if proc.returncode != 0:
+        return None
+
+    last_exit: dict | None = None
+    for line in proc.stdout.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            entry = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        try:
+            entry_pid = int(entry.get("_PID", 0))
+        except (TypeError, ValueError):
+            continue
+        if entry_pid == 0 or entry_pid == exclude_pid:
+            continue
+        message = str(entry.get("MESSAGE", ""))
+        exit_code: int | None = None
+        triggered_by = "journal"
+        signal_name: str | None = None
+        detail: str | None = None
+        # systemd writes: "Main process exited, code=exited, status=2/INVALIDARGUMENT"
+        # or: "Main process exited, code=killed, status=6/ABRT"
+        m_exit = _re_jrnl.search(r"code=(\w+),\s*status=(\d+)/(\w+)", message)
+        if m_exit:
+            kind, code_str, label = m_exit.group(1), m_exit.group(2), m_exit.group(3)
+            try:
+                exit_code = int(code_str)
+            except ValueError:
+                continue
+            detail = f"{kind}/{label}"
+            if kind == "killed":
+                # Killed by signal — synthesize the same shape the recorded
+                # path produces so the classifier dispatches identically.
+                triggered_by = "signal"
+                signal_name = label  # e.g. "ABRT", "KILL", "TERM"
+        elif "Main process received signal" in message:
+            m_sig = _re_jrnl.search(r"received signal (\w+)", message)
+            if m_sig:
+                triggered_by = "signal"
+                signal_name = m_sig.group(1)
+                detail = message
+        if exit_code is not None or triggered_by == "signal":
+            last_exit = {
+                "exit_code": exit_code,
+                "triggered_by": triggered_by,
+                "signal_name": signal_name,
+                "detail": detail,
+                "exit_at": entry.get("__REALTIME_TIMESTAMP"),
+                "pid": entry_pid,
+            }
+    return last_exit
 
 
 def write_overseer_state_restart_mirror(n_restarts: int, last_restart_at: str | None, reason: str) -> None:
@@ -1880,10 +2219,14 @@ def write_forward_test_health_json(engine: ForwardTestEngine) -> None:
         # let operators distinguish proactive-24h rotation from a real
         # exit fault at a glance — without them the counter ticks up on
         # every clean exit and the alert signal is buried.
+        #
+        # Card 080094ef r2: pass the full sd_status dict so the classifier
+        # can dispatch on the recorded-exit source (in-process truth) when
+        # available. The live systemd properties alone would mask a prior
+        # crash as ``clean_24h_rotation`` because they describe the
+        # CURRENT activation after ``Restart=always`` reactivation.
         _sd_status = _read_systemd_restart_status()
-        _restart_reason = _classify_restart_reason(
-            _sd_status["last_result"], _sd_status["last_exit_code"],
-        )
+        _restart_reason = _classify_restart_reason(_sd_status)
 
         health_data = {
             "service_status": "up" if engine.is_running else "down",
@@ -2433,6 +2776,10 @@ def main():
             "CTRADER_OPENAPI_ACCOUNT_ID, CTRADER_OPENAPI_TRADER_LOGIN in .env"
         )
         blend_runner.stop()
+        # Card 080094ef r2: record exit so the next restart can classify
+        # this as ``pid_guard_or_launch_failure`` instead of being masked
+        # by the live unit's success state.
+        _record_last_exit(1, "sys_exit", detail="engine_start_failure_after_retries")
         sys.exit(1)
 
     # ── FTMOGuard wiring (card dd32226b) ──────────────────────────────────
@@ -2923,7 +3270,18 @@ def main():
                     logger.warning("[B5 Health] Error logging health: %s", exc)
     except KeyboardInterrupt:
         shutdown(None, None)
-    finally:
+    except Exception as _exc:
+        # Card 080094ef r2: record uncaught exceptions so the next restart
+        # cycle can label the prior exit as ``uncaught_exception_exit_<n>``
+        # instead of being masked as ``clean_24h_rotation``. Re-raise so
+        # the existing traceback behaviour is preserved for ops triage.
+        try:
+            _record_last_exit(
+                1, "exception",
+                detail=f"{type(_exc).__name__}: {_exc}",
+            )
+        finally:
+            raise
         # Write daily equity report on exit (A8)
         try:
             _report_path = _equity_tracker.write_daily_report()
