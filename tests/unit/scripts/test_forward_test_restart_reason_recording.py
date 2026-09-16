@@ -44,15 +44,12 @@ import json
 import os
 import signal as sig
 from pathlib import Path
-from unittest.mock import patch
-
-import pytest
 
 # Importing the launcher module executes its top-level load_dotenv() call,
 # which is harmless if .env is absent. pythonpath in pytest.ini includes
 # ``scripts`` so this resolves cleanly.
 import launch_blend_forward_test as launcher  # noqa: E402
-
+import pytest
 
 # ── 1. _signal_name_for: canonical mapping + fallback ──────────────────────
 
@@ -643,6 +640,6 @@ def test_launcher_module_imports_with_recorded_exit_path() -> None:
         f"arg (sd_status dict); got {len(params)}"
     )
     ann = params[0].annotation
-    assert ann is dict or ann == "dict" or ann == dict, (
+    assert ann in (dict, "dict"), (
         f"_classify_restart_reason param must be typed as dict; got {ann!r}"
     )
