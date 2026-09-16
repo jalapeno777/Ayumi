@@ -52,7 +52,7 @@ class RotationPlan:
     errors: list[str] = field(default_factory=list)
 
 
-def _parse_args() -> argparse.Namespace:
+def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument(
         "--logs-root",
@@ -89,7 +89,7 @@ def _parse_args() -> argparse.Namespace:
         default=None,
         help="State file path (default: <archive-dir>/.rotation_state.json)",
     )
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
 def _now_utc() -> datetime:
@@ -278,7 +278,7 @@ def _emit_plan(plan: RotationPlan, *, dry_run: bool) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = _parse_args()
+    args = _parse_args(argv)
     logs_root: Path = args.logs_root.resolve()
     archive_dir: Path = (args.archive_dir or (logs_root / "archive")).resolve()
     state_file: Path = (args.state_file or (archive_dir / STATE_FILENAME)).resolve()
