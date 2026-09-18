@@ -125,7 +125,14 @@ class TestCanaryDisable:
 
 class TestCanaryEnvGating:
     """Verify env var gating logic for canary re-enable."""
-    @pytest.mark.xfail(reason="DEBT 6ea40384-35ba-4c41-99a6-87d843ca7f75: TestCanaryStrategy._initialized attribute missing (pre-existing)", strict=False)
+    @pytest.mark.xfail(
+        reason=(
+            "DEBT 6ea40384: from_env() env-var-unset must produce a disabled "
+            "instance; the prior default of '1' made env-unset enable the "
+            "canary silently (card cef77185)"
+        ),
+        strict=False,
+    )
 
     def test_env_var_not_set_means_disabled(self):
         """Without AYUMI_ENABLE_CANARY env var, canary should construct as disabled."""
