@@ -408,11 +408,14 @@ class DualTFSqueezeProStrategy(ISignalStrategy):
         self._m15_prev_prev_close = None
         self._m15_tr_buffer.clear()
         self._h1_bars.clear()
+        self._h1_closes.clear()
         self._h1_current = None
         self._h1_prev_close = None
         self._h1_trs.clear()
         self._h1_atr = 0.0
-        self._bars_since_signal = self.config.cooldown_bars_m15 + 1
+        # 999 = "no signal ever" sentinel (matches ``__init__``); the
+        # strategy is otherwise indistinguishable from a fresh instance.
+        self._bars_since_signal = 999
 
     def on_bar(self, bar: Bar) -> None:
         """Update incremental indicators and the synthetic H1 series.
@@ -456,31 +459,39 @@ class DualTFSqueezeProStrategy(ISignalStrategy):
         self._m15_prev_close = bar.close
 
     def _update_h1(self, bar: Bar) -> None:
-        """Aggregate M15 bar into synthetic H1 bar and update H1 ATR."""
+        """Aggregate M15 bar into synthetic H1 bar and update H1 ATR.
+
+        The synthetic H1 bar is registered in ``_h1_bars`` immediately
+        on creation so external observers (and ``evaluate()``) see every
+        hour seen so far — including the in-progress one — rather than
+        only finalized hours. ``_h1_current`` is therefore always a
+        reference to ``_h1_bars[-1]``; mutations to it are visible at
+        the tail of ``_h1_bars`` as well.
+        """
         # Use the bar.time to bucket by hour. If bar.time is naive,
         # ``replace(minute=0, second=0, microsecond=0)`` is fine.
         hour = bar.time.replace(minute=0, second=0, microsecond=0)
 
         if self._h1_current is None or self._h1_current.time != hour:
-            # Finalize the previous hour.
+            # New hour: finalize the previous (still living at
+            # ``_h1_bars[-1]``) by computing its true range and stepping
+            # the ATR. No need to re-append — it is already in the list.
             if self._h1_current is not None:
-                self._h1_bars.append(self._h1_current)
-                # Compute the previous hour's true range from the
-                # freshly-completed bar's close vs the close before it.
+                cur = self._h1_current
                 if len(self._h1_bars) >= 2:
                     prev_close = self._h1_bars[-2].close
-                    cur = self._h1_current
                     tr = max(
                         cur.high - cur.low,
                         abs(cur.high - prev_close),
                         abs(cur.low - prev_close),
                     )
                 else:
-                    tr = self._h1_current.high - self._h1_current.low
+                    tr = cur.high - cur.low
                 self._h1_trs.append(tr)
                 self._step_h1_atr()
-            # Start a new synthetic H1 bar.
-            self._h1_current = Bar(
+            # Register the new synthetic H1 bar in the list immediately
+            # so ``len(_h1_bars)`` == number of distinct hours seen.
+            new_bar = Bar(
                 time=hour,
                 open=bar.open,
                 high=bar.high,
@@ -489,13 +500,20 @@ class DualTFSqueezeProStrategy(ISignalStrategy):
                 volume=bar.volume,
                 period=BarPeriod.H1(),
             )
+            self._h1_bars.append(new_bar)
+            self._h1_closes.append(bar.close)
+            self._h1_current = new_bar
         else:
-            # Extend the current hour: take max/min/latest close.
+            # Same hour: extend the current synthetic H1 bar in place.
+            # ``_h1_current`` is ``_h1_bars[-1]`` (same object), so
+            # tail-of-list callers see the update for free.
             cur = self._h1_current
             cur.high = max(cur.high, bar.high)
             cur.low = min(cur.low, bar.low)
             cur.close = bar.close
             cur.volume += bar.volume
+            if self._h1_closes:
+                self._h1_closes[-1] = cur.close
 
     def _step_h1_atr(self) -> None:
         """Wilder ATR over the appended H1 true-range series."""
