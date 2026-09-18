@@ -1,5 +1,4 @@
 from datetime import date
-from pathlib import Path
 import pytest
 
 from adapters.ctrader.models import CTraderTradeSignal, TradeDirection
@@ -13,131 +12,14 @@ from adapters.ctrader.risk_guard import (
 )
 
 
-# Repo root and data dir constants for the override fixture below.
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-_DATA_DIR = _REPO_ROOT / "data"
-
-
-@pytest.fixture(autouse=True)
-def _guard_repo_data_writes():
-    """Override tests/conftest.py's _guard_repo_data_writes for THIS test file.
-
-    Pytest's conftest-mechanism rule (verified empirically 2026-09-18 in
-    /tmp/fixture_shadow_test): a same-named autouse fixture in a test
-    module shadows the conftest's same-named fixture for tests in that
-    module only — the conftest's strict guard remains in force for all
-    other test files.  The previous Tsubaki attempt (card 22fb282b,
-    commit c50cf46b) declared this fixture as
-    ``_guard_repo_data_writes_relaxed_for_heartbeat`` which did NOT
-    shadow because of the name mismatch; both fixtures ran and the
-    conftest's strict guard still fired on the externally-written
-    heartbeat.  This module-level fixture is the actual shadow.
-
-    Why the exemption exists:
-
-      ``data/heartbeat_trading.json`` is written by an EXTERNAL live
-      forward-test-engine process (PID 2053306,
-      ``scripts/launch_blend_forward_test.py``) every ~5 seconds.  When
-      a pytest run's heartbeat-trading-window coincides with one of
-      those writes, the conftest's strict guard's snapshot-vs-current
-      diff flags the modified file as a test pollution violation,
-      producing ERROR at fixture teardown.  A 311-file deterministic
-      trace confirmed this is the sole ``<repo>/data/`` modification
-      source during this test file's execution — no test code in this
-      file touches ``data/`` directly.
-
-      2026-09-18 followup3: ``data/edge_telemetry_state.json`` and
-      ``data/forex/equity_snapshots.jsonl`` are also externally written
-      by PID 2053306 (per ``ps -p 2053306`` + ``/tmp/rg_error_detail.log``
-      E-line); added to ``EXCLUDED_NAMES``, basename match keeps
-      ``forex/`` coverage automatic.
-
-    Preservation contract (per card 22fb282b):
-
-      * SAME scan semantics as the conftest: snapshot
-        ``(mtime_ns, size, inode)`` of every regular file under
-        ``<repo>/data/`` before yielding, then re-scan and compare
-        after the test body returns.
-      * SAME violation reporting: ``modified: <rel>``, ``created:
-        <rel>``, ``deleted: <rel>``, capped to the first five entries
-        in the failure message.
-      * EXACTLY ONE documented exemption: a fixed-name set of
-        externally-written files (``EXCLUDED_NAMES``).  This file is
-        the sole known external-process file as of 2026-09-18; if a
-        second such file is added, it goes into ``EXCLUDED_NAMES`` and
-        the rationale is appended here — never weaken the guard's
-        semantics for actual test pollution.
-      * NO production-code change.  The path to heartbeat/KillSwitch
-        state is isolated in the companion fixture
-        ``_isolate_risk_guard_and_dependencies`` (see below) so a test
-        that triggers ``ForwardTestEngine.__init__`` writes to
-        ``tmp_path`` instead of ``data/`` — the guard exemption is a
-        belt over those braces, not a substitute.
-    """
-    if not _DATA_DIR.is_dir():
-        yield
-        return
-
-    EXCLUDED_NAMES = {
-        "heartbeat_trading.json",
-        "edge_telemetry_state.json",
-        "equity_snapshots.jsonl",
-    }
-
-    snapshot: dict[str, tuple[int, int, int]] = {}
-    for path in _DATA_DIR.rglob("*"):
-        if path.is_file() and path.name not in EXCLUDED_NAMES:
-            try:
-                st = path.stat()
-                snapshot[str(path.resolve())] = (st.st_mtime_ns, st.st_size, st.st_ino)
-            except OSError:
-                pass
-
-    yield
-
-    violations: list[str] = []
-    current_files: set[str] = set()
-    if _DATA_DIR.is_dir():
-        for path in _DATA_DIR.rglob("*"):
-            if path.is_file() and path.name not in EXCLUDED_NAMES:
-                try:
-                    key = str(path.resolve())
-                    current_files.add(key)
-                    st = path.stat()
-                    if key in snapshot:
-                        pre_mtime, pre_size, pre_ino = snapshot[key]
-                        if (
-                            st.st_mtime_ns != pre_mtime
-                            or st.st_size != pre_size
-                            or st.st_ino != pre_ino
-                        ):
-                            try:
-                                rel = path.relative_to(_REPO_ROOT)
-                            except ValueError:
-                                rel = path
-                            violations.append(f"modified: {rel}")
-                    else:
-                        try:
-                            rel = path.relative_to(_REPO_ROOT)
-                        except ValueError:
-                            rel = path
-                        violations.append(f"created: {rel}")
-                except OSError:
-                    pass
-
-    deleted = set(snapshot.keys()) - current_files
-    for key in sorted(deleted):
-        try:
-            rel = Path(key).relative_to(_REPO_ROOT)
-        except ValueError:
-            rel = Path(key)
-        violations.append(f"deleted: {rel}")
-
-    if violations:
-        pytest.fail(
-            "Test wrote under <repo>/data/ — use tmp_path-based fixtures "
-            "instead. Violations: " + "; ".join(violations[:5])
-        )
+# NOTE (card 22fb282b, followup4): the prior module-level
+# ``_guard_repo_data_writes`` override (heartbeat / telemetry / equity
+# exemption, basename match) was REMOVED. The exemption logic is now
+# centralized in tests/conftest.py's ``_guard_repo_data_writes`` and
+# applies uniformly to every test file in the suite, gated by live
+# engine detection (see conftest._EXTERNAL_WRITER_FILES + _is_engine_running).
+# When the engine is down, those five files revert to strict guard
+# behaviour so genuine test pollution to them still fails.
 
 
 @pytest.fixture(autouse=True)

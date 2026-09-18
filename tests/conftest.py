@@ -22,6 +22,65 @@ import pytest
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
+# ---------------------------------------------------------------------------
+# External writer exemption (card 22fb282b, followup4)
+# ---------------------------------------------------------------------------
+# The live forward-test engine (scripts/launch_blend_forward_test.py) writes
+# FIVE repo data/ files from a SEPARATE PROCESS outside any pytest run:
+#
+#   1. data/heartbeat_trading.json          (~5s heartbeat)
+#   2. data/edge_telemetry_state.json       (telemetry state)
+#   3. data/forex/equity_snapshots.jsonl    (equity snapshots, basename match)
+#   4. data/forward_test_health.json        (health probe)
+#   5. data/overseer_state.json             (overseer state)
+#
+# When the engine is running, the snapshot-vs-current diff in
+# ``_guard_repo_data_writes`` would otherwise flag every one of these
+# externally-written files as test pollution, producing intermittent
+# teardown ERROR across the entire test suite (the per-file whack-a-mole
+# is over — this is a conftest-level defect). The five basenames are
+# basenames (not full paths) so coverage is automatic for ``forex/``.
+#
+# The exemption is CONDITIONAL on the engine actually running: if the
+# engine is down (e.g. CI, dev box, post-shutdown), these files revert
+# to strict guard behaviour so a genuine test write to one of them will
+# still fail. Engine detection uses /proc scanning (Linux-native,
+# deterministic, no subprocess flakiness) for ``launch_blend_forward_test``.
+_EXTERNAL_WRITER_FILES: frozenset[str] = frozenset({
+    "heartbeat_trading.json",
+    "edge_telemetry_state.json",
+    "equity_snapshots.jsonl",
+    "forward_test_health.json",
+    "overseer_state.json",
+})
+
+
+def _is_engine_running() -> bool:
+    """Return True iff ``launch_blend_forward_test`` is running on this host.
+
+    Implementation: scan ``/proc/<pid>/cmdline`` for any process whose
+    command line contains the engine script name. /proc is Linux-only;
+    the engine itself is Linux-only (it relies on Linux process control
+    and POSIX signals), so the platform assumption is consistent. This
+    avoids subprocess flakiness (PATH issues, pgrep exit-code variability,
+    race between check and fixture yield).
+    """
+    proc_dir = Path("/proc")
+    if not proc_dir.is_dir():
+        return False
+    for pid_dir in proc_dir.iterdir():
+        if not pid_dir.name.isdigit():
+            continue
+        try:
+            cmdline_bytes = (pid_dir / "cmdline").read_bytes()
+        except (OSError, PermissionError):
+            continue
+        cmdline = cmdline_bytes.replace(b"\x00", b" ").decode("utf-8", errors="ignore")
+        if "launch_blend_forward_test" in cmdline:
+            return True
+    return False
+
+
 @pytest.fixture(autouse=True)
 def _guard_repo_data_writes():
     """Fail any test that writes under ``<repo>/data/``.
@@ -36,6 +95,18 @@ def _guard_repo_data_writes():
     that isolate signal-stats and risk-guard writes. Tests that already
     use ``tmp_path`` (or any non-``data/`` location) are unaffected.
 
+    External-writer exemption (card 22fb282b, followup4): when the live
+    forward-test engine ``launch_blend_forward_test`` is running, the
+    five externally-written files listed in ``_EXTERNAL_WRITER_FILES``
+    are exempted from the snapshot/comparison (matched by basename).
+    When the engine is NOT running, those files revert to strict guard
+    behaviour so any genuine test pollution to them still fails. This
+    is the structural fix that supersedes per-file whack-a-mole module
+    shadow fixtures (e.g. tests/integration/test_ctrader_risk_guard.py's
+    prior ``_guard_repo_data_writes`` override is removed in followup4;
+    the companion ``_isolate_risk_guard_and_dependencies`` path-isolation
+    fixture is kept as genuine defense-in-depth).
+
     Performance: ``data_dir.rglob('*')`` is O(N) on the file count; with
     a few hundred state files this adds <5ms per test, which is well
     within the per-test overhead budget. The fixture short-circuits when
@@ -46,9 +117,12 @@ def _guard_repo_data_writes():
         yield
         return
 
+    engine_running = _is_engine_running()
+    excluded_names = _EXTERNAL_WRITER_FILES if engine_running else frozenset()
+
     snapshot: dict[str, tuple[int, int, int]] = {}
     for path in data_dir.rglob("*"):
-        if path.is_file():
+        if path.is_file() and path.name not in excluded_names:
             st = path.stat()
             snapshot[str(path.resolve())] = (st.st_mtime_ns, st.st_size, st.st_ino)
 
@@ -58,7 +132,7 @@ def _guard_repo_data_writes():
     current_files: set[str] = set()
     if data_dir.is_dir():
         for path in data_dir.rglob("*"):
-            if path.is_file():
+            if path.is_file() and path.name not in excluded_names:
                 key = str(path.resolve())
                 current_files.add(key)
                 if key in snapshot:
