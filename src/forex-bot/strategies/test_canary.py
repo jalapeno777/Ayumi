@@ -30,9 +30,19 @@ logger = logging.getLogger("ayumi.test_canary")
 class TestCanaryStrategy(ISignalStrategy):
     """Fire a signal on every bar close to validate the execution pipeline.
 
-    RE-ENABLED as of 2026-07-17 — canary now defaults to enabled via from_env().
-    To explicitly disable, set AYUMI_ENABLE_CANARY=0 in the environment.
-    Constructor still defaults to tp_sl_pct=0.0 (disabled) for safety.
+    Constructor defaults to tp_sl_pct=0.0 (disabled) for safety.
+    ``from_env()`` mirrors that safety posture: env-var-unset means
+    disabled. To explicitly enable, set AYUMI_ENABLE_CANARY=1.
+
+    Card cef77185-a49a-4535-a206-173a0850d8e9 (sprint 2026-09-18-ayumi-
+    prodbug-24, final): the previous default ("1") meant any process
+    that imported ``TestCanaryStrategy.from_env`` without setting the
+    env var would silently emit diagnostic signals on every bar — a
+    production-canary failure mode. The contract (test_env_var_not_set
+    _means_disabled, xfail→xpinned at DEBT 6ea40384) requires the
+    opposite: env-var-unset must produce a disabled instance. The
+    direct constructor path (``TestCanaryStrategy(tp_sl_pct=0.0)``)
+    was already correct; only the env-driven factory needed inversion.
     """
 
     def __init__(self, tp_sl_pct: float = 0.0):  # 0.0 = disabled (no signals)
@@ -43,10 +53,13 @@ class TestCanaryStrategy(ISignalStrategy):
     def from_env(cls, default_tp_sl_pct: float = 0.005) -> "TestCanaryStrategy":
         """Construct from environment gating.
 
-        Canary is enabled by default (forward test mode). To disable,
-        set AYUMI_ENABLE_CANARY=0 explicitly.
+        Env-var-unset means DISABLED — opt-in only via
+        ``AYUMI_ENABLE_CANARY=1``. This mirrors the constructor default
+        (``tp_sl_pct=0.0``) so ``TestCanaryStrategy()`` and
+        ``TestCanaryStrategy.from_env()`` agree on the safety posture
+        when no env var is present. Card cef77185 (DEBT 6ea40384).
         """
-        enabled = os.getenv("AYUMI_ENABLE_CANARY", "1").strip() == "1"
+        enabled = os.getenv("AYUMI_ENABLE_CANARY", "0").strip() == "1"
         if enabled:
             return cls(tp_sl_pct=default_tp_sl_pct)
         return cls(tp_sl_pct=0.0)
