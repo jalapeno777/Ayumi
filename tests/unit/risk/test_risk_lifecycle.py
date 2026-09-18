@@ -293,7 +293,12 @@ class TestRepoDataWriteGuard:
     verification run with ``-k "not negative_"``; their failing status IS
     the proof that the guard works.
     """
-    @pytest.mark.xfail(reason="DEBT 6ea40384-35ba-4c41-99a6-87d843ca7f75: negative-demo contract — autouse _guard_repo_data_writes fixture watches <repo>/data/ (pre-existing; body now passes because the demonstration write targets tmp_path)", strict=False)
+    @pytest.mark.xfail(
+        reason="DEBT 6ea40384: negative-demo contract; autouse "
+               "_guard_repo_data_writes fixture watches <repo>/data/ "
+               "(card cef77185)",
+        strict=False,
+    )
 
     def test_negative_unisolated_signal_stats_write_is_caught(self, tmp_path):
         """Negative-demo contract: unisolated writes must be caught.
