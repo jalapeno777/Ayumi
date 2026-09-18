@@ -19,24 +19,54 @@ _DATA_DIR = _REPO_ROOT / "data"
 
 
 @pytest.fixture(autouse=True)
-def _guard_repo_data_writes_relaxed_for_heartbeat():
+def _guard_repo_data_writes():
     """Override tests/conftest.py's _guard_repo_data_writes for THIS test file.
 
-    The conftest fixture fails any test whose run coincides with a write
-    to any file under <repo>/data/.  ``data/heartbeat_trading.json`` is
-    written by an external forward-test-engine process (PID 2053306,
-    ``scripts/launch_blend_forward_test.py``) every ~5 seconds, NOT by
-    these tests.  A trace of 311 data/ files across a deterministic
-    pytest run confirms this file is the sole modification source during
-    test execution — no test code in this file touches data/.
+    Pytest's conftest-mechanism rule (verified empirically 2026-09-18 in
+    /tmp/fixture_shadow_test): a same-named autouse fixture in a test
+    module shadows the conftest's same-named fixture for tests in that
+    module only — the conftest's strict guard remains in force for all
+    other test files.  The previous Tsubaki attempt (card 22fb282b,
+    commit c50cf46b) declared this fixture as
+    ``_guard_repo_data_writes_relaxed_for_heartbeat`` which did NOT
+    shadow because of the name mismatch; both fixtures ran and the
+    conftest's strict guard still fired on the externally-written
+    heartbeat.  This module-level fixture is the actual shadow.
 
-    This override preserves the conftest's protection against actual
-    test pollution (snapshot/comparison of every other data/ file)
-    while excluding the externally-written heartbeat file from the
-    false-positive set.  Pytest's fixture-lookup order means a
-    same-named autouse fixture in this test module replaces the
-    conftest's _guard_repo_data_writes for this module only — other
-    test files still get the strict conftest behaviour.
+    Why the exemption exists:
+
+      ``data/heartbeat_trading.json`` is written by an EXTERNAL live
+      forward-test-engine process (PID 2053306,
+      ``scripts/launch_blend_forward_test.py``) every ~5 seconds.  When
+      a pytest run's heartbeat-trading-window coincides with one of
+      those writes, the conftest's strict guard's snapshot-vs-current
+      diff flags the modified file as a test pollution violation,
+      producing ERROR at fixture teardown.  A 311-file deterministic
+      trace confirmed this is the sole ``<repo>/data/`` modification
+      source during this test file's execution — no test code in this
+      file touches ``data/`` directly.
+
+    Preservation contract (per card 22fb282b):
+
+      * SAME scan semantics as the conftest: snapshot
+        ``(mtime_ns, size, inode)`` of every regular file under
+        ``<repo>/data/`` before yielding, then re-scan and compare
+        after the test body returns.
+      * SAME violation reporting: ``modified: <rel>``, ``created:
+        <rel>``, ``deleted: <rel>``, capped to the first five entries
+        in the failure message.
+      * EXACTLY ONE documented exemption: a fixed-name set of
+        externally-written files (``EXCLUDED_NAMES``).  This file is
+        the sole known external-process file as of 2026-09-18; if a
+        second such file is added, it goes into ``EXCLUDED_NAMES`` and
+        the rationale is appended here — never weaken the guard's
+        semantics for actual test pollution.
+      * NO production-code change.  The path to heartbeat/KillSwitch
+        state is isolated in the companion fixture
+        ``_isolate_risk_guard_and_dependencies`` (see below) so a test
+        that triggers ``ForwardTestEngine.__init__`` writes to
+        ``tmp_path`` instead of ``data/`` — the guard exemption is a
+        belt over those braces, not a substitute.
     """
     if not _DATA_DIR.is_dir():
         yield
