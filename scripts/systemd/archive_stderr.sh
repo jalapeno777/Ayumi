@@ -27,7 +27,7 @@ mkdir -p "$ARCHIVE_DIR" || exit 0
 ts=$(date -u +%Y%m%dT%H%M%SZ)
 dest="$ARCHIVE_DIR/forward_test-stderr-$ts.log"
 n=0
-while [[ -e "$dest" && $n -lt 5 ]]; do
+while [[ -e "$dest" ]]; do
     n=$((n + 1))
     dest="$ARCHIVE_DIR/forward_test-stderr-$ts-$n.log"
 done
