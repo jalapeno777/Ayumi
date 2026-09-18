@@ -120,6 +120,7 @@ data/signal_stats*
 data/risk_state*
 data/forward_test_health.json
 data/overseer_state.json
+data/edge_telemetry_*.json
 
 # Runtime equity tracking
 data/forex/equity_reports/
