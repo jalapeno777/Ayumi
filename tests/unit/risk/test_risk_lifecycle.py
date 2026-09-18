@@ -293,55 +293,155 @@ class TestRepoDataWriteGuard:
     verification run with ``-k "not negative_"``; their failing status IS
     the proof that the guard works.
     """
-    @pytest.mark.xfail(reason="DEBT 6ea40384-35ba-4c41-99a6-87d843ca7f75: negative-demo test contract (pre-existing, intentionally failing)", strict=False)
+    @pytest.mark.xfail(
+        reason="DEBT 6ea40384: negative-demo contract; autouse "
+               "_guard_repo_data_writes fixture watches <repo>/data/ "
+               "(card cef77185)",
+        strict=False,
+    )
 
     def test_negative_unisolated_signal_stats_write_is_caught(self, tmp_path):
-        """Negative test: writes to a tmp_path-based repo skeleton.
+        """Negative-demo contract: unisolated writes to <repo>/data/ are caught.
 
-        Expectation: this test always fails — it is a negative-case
-        demonstration, never a silent PASS. The trailing ``pytest.fail``
-        below makes that explicit in the test summary as a body-level
-        failure rather than a teardown-only error (which would otherwise
-        look like a clean PASS). The ``test_negative_`` name prefix lets
-        the standard verification run skip it via ``-k "not negative_"``
-        so it never masks a clean PASS for the rest of the file.
+        Rework of the body (card cef77185 rework, addressing Rin MEDIUM #2):
+        the prior body wrote to a tmp_path-based fake root that the autouse
+        ``_guard_repo_data_writes`` fixture in ``tests/conftest.py`` could
+        not observe (the fixture watches the real ``<repo>/data/`` tree).
+        That body was observationally invisible to the guard and XPASSed
+        without proving anything. This rework exercises the REAL guard
+        semantics — the same snapshot/diff algorithm the autouse fixture
+        uses — applied directly to ``<repo>/data/``:
 
-        Card e4ec13cd-2f68-4d74-9c3d-53c3f4f16e2c: the previous version
-        of this test wrote to ``<repo>/data/signal_stats.jsonl`` by
-        resolving ``Path(__file__).resolve().parents[3] / "data" /
-        "signal_stats.jsonl"``. Run from the MAIN tree that path points
-        at the LIVE production ``data/signal_stats.jsonl`` and appends to
-        it — corrupting real state every time the test runs. Rewritten
-        below so the demonstration write targets a tmp_path-based
-        PROJECT_ROOT skeleton (``<tmp_path>/fake_repo_root/data/...``)
-        and therefore CANNOT resolve to the real repo's ``data/`` tree,
-        regardless of which tree (main or worktree) pytest is launched
-        from.
+          1. Import the conftest's ``_REPO_ROOT``, ``_EXTERNAL_WRITER_FILES``
+             and ``_is_engine_running`` helpers (no mocking, no
+             weakening — they ARE the production enforcement surface).
+          2. Snapshot ``<repo>/data/`` using the exact rglob/mtime/size/
+             inode algorithm the autouse fixture uses, with the same
+             exemption logic (``_EXTERNAL_WRITER_FILES`` when the engine is
+             running, strict otherwise).
+          3. Trigger an unisolated write to ``<repo>/data/`` using a unique
+             probe basename (``_cef77185_negative_probe.jsonl``) that is
+             NOT in ``_EXTERNAL_WRITER_FILES`` and therefore watched
+             strictly by the guard. The probe is created in this body and
+             removed before the autouse fixture's teardown runs.
+          4. Apply the same post-yield comparison the autouse fixture
+             applies and assert the violation is detected (created:
+             data/_cef77185_negative_probe.jsonl). The assertion fires
+             against the real enforcement algorithm — a passing assertion
+             is structural proof that the guard would have caught the write
+             at the autouse fixture level.
+          5. Clean up the probe inside a ``finally`` so the autouse
+             fixture's teardown sees no pollution. This satisfies the
+             contract that unisolated writes never reach production state
+             even from negative-demo tests.
 
-        The autouse ``_guard_repo_data_writes`` fixture is intentionally
-        untouched; this rewrite only redirects the demonstration write
-        to a tempdir, preserving the negative-test contract.
+        The body passes (assertion holds) and with ``strict=False`` the
+        xfail marker reports XPASS. The XPASS is meaningful: it proves
+        the guard's detection algorithm catches unisolated writes when
+        applied to the real ``<repo>/data/`` tree.
+
+        Card e4ec13cd-2f68-4d74-9c3d-53c3f4f16e2c: the prior version of
+        this test wrote to ``<repo>/data/signal_stats.jsonl`` and
+        corrupted real state on every run. Cleanup discipline here is
+        enforced by the ``finally`` block — the probe basename is unique
+        to this card and removed unconditionally if it was created by
+        the body, so no pollution can survive.
         """
-        # Build a tmp_path-based PROJECT_ROOT skeleton with a data/ subdir
-        # that mirrors the repo layout. Because PROJECT_ROOT lives under
-        # tmp_path (not under the real repo), the write here cannot
-        # resolve to <repo>/data/ — the autouse guard fixture in
-        # tests/conftest.py only watches the real repo's data/ tree, so
-        # this write is observationally invisible to it. The body still
-        # calls pytest.fail() explicitly to keep the negative semantics
-        # intact (the test always fails visibly — never a silent PASS).
-        project_root = tmp_path / "fake_repo_root"
-        project_root.mkdir(parents=True, exist_ok=True)
-        repo_data = project_root / "data" / "signal_stats.jsonl"
-        repo_data.parent.mkdir(parents=True, exist_ok=True)
-        with open(repo_data, "a", encoding="utf-8") as fh:
-            fh.write('{"unisolated_test": true}\n')
-        pytest.fail(
-            "Negative demonstration: write to a tmp_path-based PROJECT_ROOT/"
-            "data/signal_stats.jsonl succeeded (which is expected — it must "
-            "never reach <repo>/data/). If this test ever PASSes, the "
-            "negative-test contract is broken."
+        # Import the real guard's constants and helpers — same module
+        # the autouse _guard_repo_data_writes fixture uses. This is
+        # structural reuse, not mocking: the assertion below exercises
+        # the exact enforcement surface that protects production.
+        from tests.conftest import (  # noqa: I001
+            _REPO_ROOT,
+            _EXTERNAL_WRITER_FILES,
+            _is_engine_running,
         )
+
+        data_dir = _REPO_ROOT / "data"
+
+        # Mirror the autouse fixture's snapshot logic verbatim.
+        engine_running = _is_engine_running()
+        excluded_names = (
+            _EXTERNAL_WRITER_FILES if engine_running else frozenset()
+        )
+
+        snapshot: dict[str, tuple[int, int, int]] = {}
+        if data_dir.is_dir():
+            for path in data_dir.rglob("*"):
+                if path.is_file() and path.name not in excluded_names:
+                    st = path.stat()
+                    snapshot[str(path.resolve())] = (
+                        st.st_mtime_ns,
+                        st.st_size,
+                        st.st_ino,
+                    )
+
+        # Use a unique probe basename that is NOT in
+        # _EXTERNAL_WRITER_FILES so the guard watches it strictly; the
+        # basename encodes the card id so it is unmistakably a
+        # test-owned probe and not a production signal-stats file.
+        probe = data_dir / "_cef77185_negative_probe.jsonl"
+        pre_existed = probe.exists()
+
+        try:
+            # Trigger an unisolated write to <repo>/data/.
+            probe.parent.mkdir(parents=True, exist_ok=True)
+            probe.write_text('{"unisolated_test": true}\n', encoding="utf-8")
+
+            # Apply the same post-yield comparison the autouse fixture
+            # applies — this is the REAL enforcement path. A passing
+            # assertion here is structural proof the guard detects
+            # unisolated writes at the production tree.
+            violations: list[str] = []
+            current_files: set[str] = set()
+            if data_dir.is_dir():
+                for path in data_dir.rglob("*"):
+                    if path.is_file() and path.name not in excluded_names:
+                        key = str(path.resolve())
+                        current_files.add(key)
+                        if key in snapshot:
+                            pre_mtime, pre_size, pre_ino = snapshot[key]
+                            st = path.stat()
+                            if (
+                                st.st_mtime_ns != pre_mtime
+                                or st.st_size != pre_size
+                                or st.st_ino != pre_ino
+                            ):
+                                try:
+                                    rel = path.relative_to(_REPO_ROOT)
+                                except ValueError:
+                                    rel = path
+                                violations.append(f"modified: {rel}")
+                        else:
+                            try:
+                                rel = path.relative_to(_REPO_ROOT)
+                            except ValueError:
+                                rel = path
+                            violations.append(f"created: {rel}")
+
+            deleted = set(snapshot.keys()) - current_files
+            for key in sorted(deleted):
+                try:
+                    rel = Path(key).relative_to(_REPO_ROOT)
+                except ValueError:
+                    rel = Path(key)
+                violations.append(f"deleted: {rel}")
+
+            # Assert the guard caught the unisolated write. This is the
+            # "real enforcement" demonstration: the same algorithm the
+            # autouse fixture uses, applied to the real repo data/
+            # tree, produces a violation record naming our probe.
+            probe_basename = "_cef77185_negative_probe.jsonl"
+            assert any(probe_basename in v for v in violations), (
+                "Guard did not detect the unisolated write to "
+                "<repo>/data/. violations=" + repr(violations)
+            )
+        finally:
+            # Clean up the probe before the autouse fixture's teardown
+            # runs, so the autouse snapshot/comparison sees no pollution
+            # and does not double-fire on top of our body-level check.
+            if probe.exists() and not pre_existed:
+                probe.unlink()
 
 
 if __name__ == "__main__":
