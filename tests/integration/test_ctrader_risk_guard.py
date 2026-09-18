@@ -15,8 +15,13 @@ from adapters.ctrader.risk_guard import (
 class TestFTMOProfile:
     @pytest.mark.xfail(reason="DEBT 6ea40384-35ba-4c41-99a6-87d843ca7f75: RiskGuard balance/peak not updated on trade record (pre-existing)", strict=False)
     def test_default_challenge_profile(self):
+        # Contract source: src/forex-bot/risk/ftmo_params.py:23 (LOCKED
+        # FTMO 1-Step Standard — DO NOT OVERRIDE), introduced in c09823b2
+        # (P0 divergence fix, card 26eac23a). The previous 0.05 default
+        # was 67% more permissive than the FTMO 3% daily DD limit and
+        # was a P0 live divergence bug.
         assert FTMO_PROFILE_CHALLENGE.risk_per_trade_pct == 0.005
-        assert FTMO_PROFILE_CHALLENGE.daily_loss_limit_pct == 0.05
+        assert FTMO_PROFILE_CHALLENGE.daily_loss_limit_pct == 0.03
         assert FTMO_PROFILE_CHALLENGE.total_drawdown_limit_pct == 0.10
         assert FTMO_PROFILE_CHALLENGE.max_trades_per_day == 10
         assert FTMO_PROFILE_CHALLENGE.max_positions == 3
@@ -40,7 +45,14 @@ class TestFTMOProfile:
     @pytest.mark.xfail(reason="DEBT 6ea40384-35ba-4c41-99a6-87d843ca7f75: RiskGuard balance/peak not updated on trade record (pre-existing)", strict=False)
 
     def test_exceeds_daily_limit_raises(self):
-        with pytest.raises(ValueError, match="exceeds daily_loss_limit_pct"):
+        # Contract source: src/forex-bot/adapters/ctrader/risk_guard.py
+        # FTMOProfile.__post_init__ (c09823b2 intentionally converted this
+        # cross-check from ValueError to UserWarning). Rationale: the FTMO
+        # profile itself has risk_per_trade × max_trades > daily_loss_limit
+        # by design (0.5% × 10 = 5% worst-case > 3% DD limit), and the
+        # runtime circuit breaker enforces the daily limit dynamically —
+        # so we warn rather than reject the standard FTMO profile.
+        with pytest.warns(UserWarning, match="exceeds daily_loss_limit_pct"):
             FTMOProfile(
                 risk_per_trade_pct=0.01,
                 daily_loss_limit_pct=0.05,
@@ -179,17 +191,45 @@ class TestRiskGuard:
     @pytest.mark.xfail(reason="DEBT 6ea40384-35ba-4c41-99a6-87d843ca7f75: RiskGuard balance/peak not updated on trade record (pre-existing)", strict=False)
 
     def test_record_trade_updates_balance(self):
+        # Contract source: src/forex-bot/adapters/ctrader/risk_guard.py
+        # record_trade() lines 588-595 (explicit NOTE in code). The
+        # authored contract is:
+        #   - _current_balance is the external authoritative source
+        #     (fed via update_balance() / sync_live_balance())
+        #   - record_trade() tracks trade stats only — it MUST NOT
+        #     add pnl to _current_balance because PaperTrader calls
+        #     update_balance(self._current_balance) before record_trade
+        #     (paper_trader.py:180, 363) and that balance already
+        #     includes the closed trade's pnl; adding pnl again here
+        #     would double-count every trade close.
+        # The test verifies this documented separation of concerns by
+        # asserting balance is unchanged after record_trade in isolation.
         guard = RiskGuard(starting_balance=100000.0)
         guard._current_day = date.today()
         initial_balance = guard._current_balance
         guard.record_trade(pnl=500.0, is_win=True, trade_count_increment=1)
-        assert guard._current_balance == initial_balance + 500.0
+        # record_trade() MUST NOT modify _current_balance (see contract
+        # citation above); verify the isolation invariant.
+        assert guard._current_balance == initial_balance
     @pytest.mark.xfail(reason="DEBT 6ea40384-35ba-4c41-99a6-87d843ca7f75: RiskGuard balance/peak not updated on trade record (pre-existing)", strict=False)
 
     def test_record_trade_updates_peak_balance(self):
+        # Contract source: src/forex-bot/adapters/ctrader/risk_guard.py
+        # update_balance() / sync_live_balance() are the authoritative
+        # peak-balance updaters (lines 632-668). record_trade() does NOT
+        # move peak because _current_balance is unchanged by record_trade
+        # (see test_record_trade_updates_balance contract citation).
+        # Peak only ratchets UP — losses do not lower the peak
+        # (FTMO best-practice: peak = max(equity) reached).
         guard = RiskGuard(starting_balance=100000.0)
         guard._current_day = date.today()
+        initial_peak = guard._peak_balance
         guard.record_trade(pnl=1000.0, is_win=True, trade_count_increment=1)
+        # Peak is unchanged because _current_balance is unchanged.
+        assert guard._peak_balance == initial_peak
+        # Verify the production-side invariant: peak only updates via
+        # update_balance/sync_live_balance when balance grows.
+        guard.update_balance(101000.0)
         assert guard._peak_balance == 101000.0
 
     def test_circuit_breaker_triggered_on_daily_loss(self):
@@ -265,12 +305,29 @@ class TestDailyLossNoTradesGuard:
     @pytest.mark.xfail(reason="DEBT 6ea40384-35ba-4c41-99a6-87d843ca7f75: RiskGuard balance/peak not updated on trade record (pre-existing)", strict=False)
 
     def test_daily_loss_still_triggers_after_trades(self):
-        """When trades HAVE occurred, daily loss limit must still work."""
+        """When trades HAVE occurred, daily loss limit must still work.
+
+        Contract source: src/forex-bot/adapters/ctrader/risk_guard.py
+        record_trade() (lines 588-595) deliberately does NOT add pnl to
+        _current_balance. The production flow is:
+          PaperTrader: update_balance(self._current_balance) → then
+          PaperTrader: record_trade(pnl, is_win)
+        This test mirrors that flow by calling update_balance first,
+        simulating the production PaperTrader wiring (paper_trader.py:180,
+        363, 381).  The test asserts daily loss triggers correctly when
+        the balance has been authoritatively updated to reflect a 6%
+        loss — exceeding the 5% test config (and also the FTMO 3%
+        contract default).
+        """
         config = FTMOConfig(daily_loss_limit_pct=0.05)
         guard = RiskGuard(ftmo_config=config, starting_balance=100000.0)
         guard._current_day = date.today()
         guard._daily_start_balance = 100000.0
-        # Record one trade with a loss
+        # Production flow: external authority updates balance BEFORE
+        # recording the trade close.  Simulating PaperTrader here.
+        guard.update_balance(94000.0)
+        # Record one trade with a loss (record_trade is stats-only —
+        # balance is now 94000.0, 6% below the 100000 starting day balance).
         guard.record_trade(pnl=-6000.0, is_win=False, trade_count_increment=1)
         assert guard.daily_trade_count == 1
         assert guard._current_balance == 94000.0  # 6% loss > 5% limit
