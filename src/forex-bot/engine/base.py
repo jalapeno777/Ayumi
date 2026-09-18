@@ -211,6 +211,7 @@ class EngineCore:
         self,
         trades: list[SimulatedTrade],
         equity_curve: list[float],
+        rejected_signals: int = 0,
     ) -> BacktestMetrics:
         metrics = BacktestMetrics(
             starting_balance=self.config.starting_balance,
