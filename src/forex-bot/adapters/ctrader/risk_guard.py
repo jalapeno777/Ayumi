@@ -25,11 +25,26 @@ from .models import CTraderTradeSignal, TradeDirection
 
 logger = logging.getLogger(__name__)
 
-# Trading day boundary: 00:00 America/Toronto (midnight Eastern).
-# Per Craig decision (Jul 17, 2026): align engine and risk guard to
-# America/Toronto midnight for consistency.
+# Trading day boundary: 17:00 America/Toronto (5 PM ET).
+# Forex trading day rolls at 5 PM New York / Toronto time.
+#
+# FTMO contract: daily drawdown is calculated based on the previous
+# day's balance at 5 PM EST (the broker's daily rollover). Per the
+# task card (0d64bec9, 2026-09-18) adjudication directive — "adjudicate
+# against FTMO contract like card 22fb282b did, cite source in proof
+# if ambiguous, fail closed for live trading when in doubt" — the
+# risk guard rolls its daily tracking window at 17:00 ET so the FTMO
+# daily-loss budget aligns with the broker's reckoning.
+#
+# Note: commit 4216e55b (Craig, 2026-07-17) previously moved this to
+# midnight Eastern for engine+guard consistency; that change
+# deliberately deviated from FTMO and was reverted here because the
+# live-trading FTMO daily-loss math requires 17:00 ET rollover. The
+# engine-side daily reset at midnight is independent (it owns the
+# ForwardTestHealth B5 loop, not the FTMO daily-loss math), so
+# reverting _current_trading_day() does not affect engine-side reset.
 _TRADING_TZ = ZoneInfo("America/Toronto")
-_TRADING_DAY_RESET_HOUR = 0
+_TRADING_DAY_RESET_HOUR = 17
 
 # Default per-symbol max spread in pips.  Values are tightened to
 # reject news-spike spreads while allowing normal interbank conditions.
@@ -458,13 +473,22 @@ class RiskGuard:
         return reward / risk
 
     def _current_trading_day(self) -> date:
-        """Return the current trading day based on 00:00 America/Toronto.
+        """Return the current trading day based on 17:00 America/Toronto.
 
-        Trading day rolls at midnight Eastern.  This aligns with the
-        engine and FTMO guard for consistent daily reset.
+        Trading day rolls at 17:00 Eastern (5 PM ET — the broker's
+        daily rollover).  Aligns with the FTMO daily-loss math which
+        is calculated from the previous day's balance at 5 PM EST.
+
+        Card 0d64bec9 (sprint 2026-09-18-ayumi-prodbug-24): live
+        trading requires FTMO-aligned daily rollover so the daily
+        loss budget is comparable to the broker's reckoning. See
+        FTMO contract citation in the module-level docstring for
+        _TRADING_DAY_RESET_HOUR.
         """
         now_tz = datetime.now(_TRADING_TZ)
-        return now_tz.date()
+        if now_tz.hour >= _TRADING_DAY_RESET_HOUR:
+            return now_tz.date()
+        return now_tz.date() - timedelta(days=1)
 
     def _update_daily_tracking(self):
         today = self._current_trading_day()
