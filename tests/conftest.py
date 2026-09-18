@@ -75,10 +75,7 @@ def _is_engine_running() -> bool:
             cmdline_bytes = (pid_dir / "cmdline").read_bytes()
         except (OSError, PermissionError):
             continue
-        try:
-            cmdline = cmdline_bytes.replace(b"\x00", b" ").decode("utf-8", errors="ignore")
-        except Exception:  # pragma: no cover - defensive
-            continue
+        cmdline = cmdline_bytes.replace(b"\x00", b" ").decode("utf-8", errors="ignore")
         if "launch_blend_forward_test" in cmdline:
             return True
     return False
