@@ -24,6 +24,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -1020,12 +1021,149 @@ def _ch_dh_file_freshness(path: Path, check_id: str, label: str, max_age_seconds
     )
 
 
+def _recent_stats_fails(log_path: Path | None = None, tail_lines: int = 20) -> int | None:
+    """Return the most recent ``stats_fails=`` counter from [B5 Health] log lines.
+
+    Returns ``None`` when no [B5 Health] line is found (evidence unavailable).
+    """
+    path = log_path or (ROOT / "logs" / "forward_test.log")
+    try:
+        out = subprocess.run(  # noqa: S603
+            ["tail", "-n", str(tail_lines), str(path)],  # noqa: S607
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return None
+    last: int | None = None
+    for line in out.stdout.splitlines():
+        if "[B5 Health]" not in line:
+            continue
+        m = re.search(r"stats_fails=(\d+)", line)
+        if m:
+            last = int(m.group(1))
+    return last
+
+
+def _signals_since_last_write(stats_mtime: float) -> bool:
+    """True when the engine generated signals after the last signal_stats write.
+
+    Uses forward_test_health.json: the ``signals_generated`` counter is
+    per-process (reset on restart), so a file mtime older than
+    ``last_restart_at`` combined with ``signals_generated > 0`` means the
+    engine observed signals in this session without any corresponding
+    signal_stats.jsonl write — a true writer failure.
+    """
+    hb_path = ROOT / "data" / "forward_test_health.json"
+    try:
+        hb = json.loads(hb_path.read_text())
+    except (json.JSONDecodeError, OSError):
+        return False
+    signals = hb.get("signals_generated")
+    restart_at = hb.get("last_restart_at")
+    if not isinstance(signals, int) or signals <= 0 or not restart_at:
+        return False
+    try:
+        restart_epoch = (
+            datetime.fromisoformat(str(restart_at))
+            .replace(tzinfo=timezone.utc)
+            .timestamp()
+        )
+    except ValueError:
+        return False
+    return stats_mtime < restart_epoch
+
+
 def _ch_dh_signal_stats() -> CheckResult:
+    """DH-003: signal_stats.jsonl writer health keyed on positive evidence.
+
+    The writer is event-driven (appends only on signal events), so a stale
+    mtime OR an absent file alone is NOT a failure. CRITICAL requires
+    positive evidence: ``stats_fails > 0`` in recent [B5 Health] lines, or
+    signals generated in-engine since the last file write without a write
+    (writer dead). Absence with no positive evidence is OK/INFO — the
+    writer has simply not had its first event yet.
+    """
     stats_path = ROOT / "data" / "signal_stats.jsonl"
+
+    # Evidence 1: stats_fails counter from B5 health log lines — independent
+    # of signal_stats.jsonl presence (the log records writer failures even
+    # when the file has never been written).
+    stats_fails = _recent_stats_fails()
+    if stats_fails is not None and stats_fails > 0:
+        return CheckResult(
+            "DH-003",
+            "Data Health",
+            "CRITICAL",
+            f"stats_fails={stats_fails} in recent [B5 Health] lines — signal_stats writer failing",
+            auto_remediation="A3 — escalation card for signal_stats writer",
+            escalated=True,
+        )
+
+    # Determine stats_mtime for the signals-without-writes check; use 0
+    # when the file is missing so any signal generation since restart
+    # trips the CRITICAL path.
+    stats_mtime = 0.0
+    if stats_path.exists():
+        try:
+            stats_mtime = stats_path.stat().st_mtime
+        except OSError as exc:
+            return CheckResult("DH-003", "Data Health", "WARN", f"stat failed: {exc}")
+
+    # Evidence 2: signals-without-writes — engine generated signals since
+    # the last file write but no write occurred.
+    if _signals_since_last_write(stats_mtime):
+        if stats_path.exists():
+            age_s = time.time() - stats_mtime
+            detail = (
+                f"signal_stats.jsonl mtime={age_s:.0f}s stale while engine reports signals "
+                "since last write — signals-without-writes"
+            )
+        else:
+            detail = (
+                "signal_stats.jsonl not yet written while engine reports signals "
+                "since last restart — signals-without-writes"
+            )
+        return CheckResult(
+            "DH-003",
+            "Data Health",
+            "CRITICAL",
+            detail,
+            auto_remediation="A3 — escalation card for signal_stats writer",
+            escalated=True,
+        )
+
+    # No positive failure evidence: event-driven staleness or absence is by design.
     market_status = _get_market_status()
-    # During market closure, stale signal_stats.jsonl is expected
-    max_age = 3600.0 if market_status in ("weekend", "closed") else 60.0
-    return _ch_dh_file_freshness(stats_path, "DH-003", "signal_stats.jsonl", max_age_seconds=max_age)
+    if not stats_path.exists():
+        # Per DH-003 contract: alerts key on positive evidence, not mere
+        # absence. With no file yet, the event-driven writer has simply
+        # not had its first event — OK/INFO, not WARN/escalated.
+        return CheckResult(
+            "DH-003",
+            "Data Health",
+            "OK",
+            "signal_stats.jsonl not yet written — event-driven writer, "
+            f"no positive failure evidence (market={market_status})",
+        )
+
+    file_age_s = time.time() - stats_mtime
+    detail = (
+        f"signal_stats.jsonl mtime={file_age_s:.0f}s "
+        f"(event-driven writer, no failure evidence, market={market_status})"
+    )
+    if stats_fails is not None:
+        detail += f", stats_fails={stats_fails}"
+    if market_status in ("weekend", "closed") or file_age_s < 86400:
+        return CheckResult("DH-003", "Data Health", "OK", detail)
+    return CheckResult(
+        "DH-003",
+        "Data Health",
+        "WARN",
+        detail,
+        auto_remediation="Verify writer resumes at next signal event.",
+    )
 
 
 def _ch_dh_risk_state() -> CheckResult:
