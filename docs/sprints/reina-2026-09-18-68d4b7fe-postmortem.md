@@ -79,4 +79,5 @@ files:
   - scripts/systemd/archive_stderr.sh
   - scripts/systemd/test_archive_stderr.sh
   - deploy/systemd/ayumi-forward-test.service.d/stderr-archival.conf
+integration_points_touched: 1
 ---END-METADATA---
