@@ -301,16 +301,19 @@ class PaperTrader:
             for position in open_positions:
                 if position.symbol in prices:
                     current_price = prices[position.symbol]
-                    # Derive bid/ask from mid price when the caller doesn't
-                    # supply them.  This ensures _check_stop_loss_hit and
-                    # _check_take_profit_hit always receive usable data
-                    # instead of silently skipping (card 9310bdd0).
+                    # Forward bid/ask verbatim from the caller. Do NOT fall
+                    # back to current_price here: OrderManager._check_stop_loss_hit
+                    # treats a zero/missing bid (LONG) or ask (SHORT) as a
+                    # "no quote" sentinel and skips the SL evaluation rather
+                    # than firing on the bar mid. Synthesising bid=ask=
+                    # current_price caused false SL triggers when only a mid
+                    # price was supplied (card 9f051898 — bid/ask side-selection
+                    # fix). The previous mid-fallback lived under card 9310bdd0
+                    # and addressed a different symptom (silently skipped
+                    # checks); the SL guard now distinguishes missing-quote
+                    # from real-side-crossed correctly.
                     bid = bids.get(position.symbol, 0)
                     ask = asks.get(position.symbol, 0)
-                    if bid <= 0:
-                        bid = current_price
-                    if ask <= 0:
-                        ask = current_price
 
                     self._order_manager.update_position(position.position_id, current_price, bid=bid, ask=ask)
                     updated_pos = self._order_manager.get_position(position.position_id)

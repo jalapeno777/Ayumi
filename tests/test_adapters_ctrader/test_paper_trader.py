@@ -1,13 +1,27 @@
-"""Unit tests for PaperTrader SL/TP enforcement (card 9310bdd0).
+"""Unit tests for PaperTrader SL/TP enforcement.
 
-Tests that paper-mode positions close correctly at SL/TP levels,
-including the case where bid/ask are not provided (only mid price).
+Tests that paper-mode positions close correctly at SL/TP levels, including
+the side-selection / no-quote-sentinel contract enforced by card 9f051898.
 
-Root cause being tested:
-  _check_stop_loss_hit / _check_take_profit_hit previously had a guard
-  ``if bid <= 0 and ask <= 0: return False`` that silently skipped the
-  check when the caller only passed a mid price.  This caused positions
-  to stay open indefinitely — the $25 → $113K loss bug.
+History of the SL/TP check contract:
+  * Pre-9310bdd0 — ``_check_stop_loss_hit`` had a guard ``if bid <= 0 and
+    ask <= 0: return False`` that silently skipped SL evaluation when only
+    a mid price was supplied. Positions stayed open indefinitely — the
+    $25 → $113K loss bug.
+  * Card 9310bdd0 — Added a ``current_price`` fallback so SL would still
+    trigger when bid/ask were missing, using the bar mid as the trigger
+    source. Closed the regression above but introduced false triggers:
+    a bar mid could dip past the SL even when the actual exit-side
+    quote was unavailable.
+  * Card 9f051898 (bid/ask side-selection fix) — Replaced the
+    current_price fallback for SL with a "no quote" sentinel: a zero/
+    missing bid (LONG) or ask (SHORT) causes ``_check_stop_loss_hit`` to
+    return ``False`` without evaluating against current_price. This
+    matches what a real broker would do — without an exit-side quote
+    you cannot conclude the SL was actually crossed.
+
+TP evaluation (``_check_take_profit_hit``) continues to use the card
+9310bdd0 current_price fallback; only SL is sentinel-gated.
 """
 
 import sys
@@ -23,6 +37,7 @@ if _FOREX_SRC not in sys.path:
 from adapters.ctrader.models import (  # noqa: I001
     CTraderTradeSignal,
     Position,
+    PositionStatus,
     TradeDirection,
 )
 from adapters.ctrader.order_manager import (
@@ -138,11 +153,14 @@ class TestStopLossCheck:
     # ── THE BUG FIX: bid/ask = 0 should NOT skip the check ───────
 
     def test_long_sl_hit_no_bid_ask(self):
-        """LONG position: SL triggers using current_price when bid/ask are 0.
+        """LONG position: SL does NOT trigger when bid=0 (no-quote sentinel).
 
-        This is the core regression test for card 9310bdd0.  Before the fix,
-        the guard ``if bid <= 0 and ask <= 0: return False`` caused this to
-        silently skip — the position stayed open with unlimited loss.
+        Card 9f051898 (bid/ask side-selection fix): a zero/missing bid on
+        a LONG is treated as a "no quote" sentinel — ``_check_stop_loss_hit``
+        returns ``False`` without consulting current_price. This replaces
+        the card 9310bdd0 current_price-fallback behaviour, which closed
+        positions on a mid-price dip past SL even when the exit-side
+        quote was unavailable (false triggers).
         """
         pos = Position(
             position_id="test",
@@ -153,11 +171,17 @@ class TestStopLossCheck:
             current_price=1.0940,
             stop_loss=1.0950,
         )
-        # bid=0, ask=0 — must still detect the SL hit via current_price
-        assert self.om._check_stop_loss_hit(pos, 1.0940, bid=0, ask=0)
+        # bid=0 — no real LONG-side quote, SL eval is skipped (sentinel)
+        assert not self.om._check_stop_loss_hit(pos, 1.0940, bid=0, ask=0)
 
     def test_short_sl_hit_no_bid_ask(self):
-        """SHORT position: SL triggers using current_price when bid/ask are 0."""
+        """SHORT position: SL does NOT trigger when ask=0 (no-quote sentinel).
+
+        Card 9f051898: a zero/missing ask on a SHORT is a "no quote"
+        sentinel — ``_check_stop_loss_hit`` returns ``False`` without
+        consulting current_price. Replaces card 9310bdd0's current_price
+        fallback for SL.
+        """
         pos = Position(
             position_id="test",
             symbol="EURUSD",
@@ -167,10 +191,19 @@ class TestStopLossCheck:
             current_price=1.1060,
             stop_loss=1.1050,
         )
-        assert self.om._check_stop_loss_hit(pos, 1.1060, bid=0, ask=0)
+        # ask=0 — no real SHORT-side quote, SL eval is skipped (sentinel)
+        assert not self.om._check_stop_loss_hit(pos, 1.1060, bid=0, ask=0)
 
     def test_sl_not_hit_no_bid_ask(self):
-        """SL does not trigger when current_price hasn't crossed SL, even with bid/ask=0."""
+        """LONG position: SL does NOT trigger when bid=0 (no-quote sentinel).
+
+        Continues to pass under card 9f051898, but for a different reason
+        than before: under the card 9310bdd0 current_price fallback this
+        test passed because current_price=1.1000 hadn't crossed
+        stop_loss=1.0950. Under card 9f051898 the sentinel short-circuits
+        earlier (bid=0 → return False). Both behaviours agree on this
+        input.
+        """
         pos = Position(
             position_id="test",
             symbol="EURUSD",
@@ -316,10 +349,15 @@ class TestUpdatePositionClosesAtSLTP:
         assert getattr(pos, "close_reason", "") == "tp_hit"
 
     def test_update_position_closes_on_sl_no_bid_ask(self):
-        """update_position closes at SL when only mid price is provided.
+        """LONG position: SL does NOT trigger when bid=0 (no-quote sentinel).
 
-        This is the PRIMARY regression test for the $25 → $113K bug.
-        Before the fix, SL was never checked when bid=0 and ask=0.
+        Card 9f051898 (bid/ask side-selection fix): a zero/missing bid
+        (LONG) is a "no quote" sentinel — ``update_position`` must NOT
+        close the position via SL on bid=0. Without a real LONG-side quote
+        we cannot conclude the SL level was actually crossed. Replaces the
+        card 9310bdd0 current_price-fallback behaviour, which closed
+        positions on a mid-price dip past SL even without an exit-side
+        quote (false triggers).
         """
         result = self.om.execute_paper_order(
             symbol="EURUSD",
@@ -331,13 +369,16 @@ class TestUpdatePositionClosesAtSLTP:
         )
         pid = result.position.position_id
 
-        # Only mid price provided, no bid/ask
+        # Only mid price provided, no bid/ask — bid=0 → no-quote sentinel
         self.om.update_position(pid, current_price=1.0940, bid=0, ask=0)
 
         pos = self.om.get_position(pid)
-        assert pos.status.is_closed, "Position should be closed by SL"
-        assert pos.closed_price == pytest.approx(1.0950, abs=0.0001)
-        assert getattr(pos, "close_reason", "") == "sl_hit"
+        # SL eval is skipped — position must stay OPEN
+        assert not pos.status.is_closed, (
+            "LONG position must stay OPEN: bid=0 is no-quote sentinel "
+            "for LONG under card 9f051898"
+        )
+        assert pos.status == PositionStatus.OPEN
 
     def test_update_position_closes_on_tp_no_bid_ask(self):
         """update_position closes at TP when only mid price is provided."""
@@ -359,7 +400,12 @@ class TestUpdatePositionClosesAtSLTP:
         assert getattr(pos, "close_reason", "") == "tp_hit"
 
     def test_update_position_short_closes_on_sl_no_bid_ask(self):
-        """SHORT position closes at SL with mid price only."""
+        """SHORT position: SL does NOT trigger when ask=0 (no-quote sentinel).
+
+        Card 9f051898: a zero/missing ask (SHORT) is a "no quote" sentinel —
+        ``update_position`` must NOT close the position via SL on ask=0.
+        Replaces card 9310bdd0's current_price fallback for SL.
+        """
         result = self.om.execute_paper_order(
             symbol="EURUSD",
             direction=TradeDirection.SHORT,
@@ -373,8 +419,12 @@ class TestUpdatePositionClosesAtSLTP:
         self.om.update_position(pid, current_price=1.1060, bid=0, ask=0)
 
         pos = self.om.get_position(pid)
-        assert pos.status.is_closed, "Short should be closed by SL"
-        assert pos.closed_price == pytest.approx(1.1050, abs=0.0001)
+        # SL eval is skipped — position must stay OPEN
+        assert not pos.status.is_closed, (
+            "SHORT position must stay OPEN: ask=0 is no-quote sentinel "
+            "for SHORT under card 9f051898"
+        )
+        assert pos.status == PositionStatus.OPEN
 
     def test_update_position_short_closes_on_tp_no_bid_ask(self):
         """SHORT position closes at TP with mid price only."""
@@ -402,20 +452,28 @@ class TestPaperTraderSLTPEnforcement:
     """End-to-end tests through PaperTrader.update_market_prices."""
 
     def test_sl_closes_via_update_market_prices_no_bid_ask(self, trader):
-        """SL fires when update_market_prices is called with only prices (no bids/asks).
+        """LONG position stays OPEN when no bids/asks are supplied.
 
-        This reproduces the exact failure scenario from card 9310bdd0:
-        the caller passes prices but not bids/asks, and positions silently
-        stay open instead of being closed at SL.
+        Card 9f051898 (bid/ask side-selection fix): with no bid/ask
+        passed to ``update_market_prices``, the PaperTrader forwards
+        bid=0/ask=0 to ``OrderManager._check_stop_loss_hit``, which now
+        treats the missing bid (LONG) as a "no quote" sentinel and skips
+        SL evaluation. The pre-fix current_price-fallback (card 9310bdd0)
+        closed the position on a mid-price dip past SL even without an
+        exit-side quote (false triggers).
         """
         signal = _make_signal(entry=1.1000, sl=1.0950, tp=1.1120)
         _pos = _open_paper_position(trader, signal)
 
-        # Price drops well below SL — pass ONLY prices, no bids/asks
+        # Pass ONLY prices, no bids/asks — bid=0 → no-quote sentinel
         trader.update_market_prices(prices={"EURUSD": 1.0900})
 
         open_positions = trader.get_open_positions()
-        assert len(open_positions) == 0, "Position should have been closed by SL"
+        # Position stays OPEN because bid=0 is no-quote sentinel for LONG
+        assert len(open_positions) == 1, (
+            "Position must stay OPEN: bid=0 is no-quote sentinel for LONG "
+            "under card 9f051898"
+        )
 
     def test_tp_closes_via_update_market_prices_no_bid_ask(self, trader):
         """TP fires when update_market_prices is called with only prices."""
@@ -441,14 +499,25 @@ class TestPaperTraderSLTPEnforcement:
         assert len(trader.get_open_positions()) == 0
 
     def test_realized_pnl_updated_on_sl_close(self, trader):
-        """Realized P&L is updated when SL closes a position internally."""
+        """Realized P&L is updated when SL closes a position internally.
+
+        Card 9f051898 (bid/ask side-selection fix): SL evaluation now
+        requires a real exit-side quote. This test supplies explicit
+        bid/ask so SL evaluation runs (without them bid=0 would be the
+        no-quote sentinel and the position would stay OPEN).
+        """
         signal = _make_signal(entry=1.1000, sl=1.0950, tp=1.1120)
         _open_paper_position(trader, signal)
 
         stats_before = trader.get_stats()
         assert stats_before.realized_pnl == 0.0
 
-        trader.update_market_prices(prices={"EURUSD": 1.0900})
+        # Pass bid/ask so SL eval runs (bid=0 would be no-quote sentinel)
+        trader.update_market_prices(
+            prices={"EURUSD": 1.0900},
+            bids={"EURUSD": 1.0900},
+            asks={"EURUSD": 1.0902},
+        )
 
         stats_after = trader.get_stats()
         assert stats_after.realized_pnl < 0, "Realized P&L should be negative after SL hit"
@@ -473,7 +542,14 @@ class TestPaperTraderSLTPEnforcement:
         assert len(trader.get_open_positions()) == 1
 
     def test_short_sl_closes_no_bid_ask(self, trader):
-        """SHORT position SL fires without bid/ask."""
+        """SHORT position stays OPEN when no bids/asks are supplied.
+
+        Card 9f051898: ask=0 (SHORT) is a "no quote" sentinel — SL
+        evaluation is skipped, the position stays OPEN. Replaces the
+        card 9310bdd0 current_price-fallback behaviour, which closed
+        SHORT positions on a mid rise past SL even without an exit-side
+        ask quote.
+        """
         signal = _make_signal(
             direction=TradeDirection.SHORT,
             entry=1.1000,
@@ -484,7 +560,8 @@ class TestPaperTraderSLTPEnforcement:
 
         trader.update_market_prices(prices={"EURUSD": 1.1100})
 
-        assert len(trader.get_open_positions()) == 0
+        # Position stays OPEN because ask=0 is no-quote sentinel for SHORT
+        assert len(trader.get_open_positions()) == 1
 
     def test_short_tp_closes_no_bid_ask(self, trader):
         """SHORT position TP fires without bid/ask."""
@@ -501,11 +578,21 @@ class TestPaperTraderSLTPEnforcement:
         assert len(trader.get_open_positions()) == 0
 
     def test_multiple_positions_close_independently(self, trader):
-        """Multiple positions close independently as price crosses SL/TP."""
+        """Multiple positions close independently as price crosses SL/TP.
+
+        Card 9f051898 (bid/ask side-selection fix): explicit bid/ask are
+        supplied so SL evaluation runs (with bid=0 the no-quote sentinel
+        would skip the SL check). Pre-fix the test relied on the
+        card 9310bdd0 current_price-fallback path.
+        """
         # Open two positions with different SLs
         sig1 = _make_signal(entry=1.1000, sl=1.0950, tp=1.1120)
         _open_paper_position(trader, sig1)
 
-        # Move price to hit SL of first position
-        trader.update_market_prices(prices={"EURUSD": 1.0940})
+        # Move price to hit SL of first position — pass bid/ask so SL runs
+        trader.update_market_prices(
+            prices={"EURUSD": 1.0940},
+            bids={"EURUSD": 1.0940},
+            asks={"EURUSD": 1.0942},
+        )
         assert len(trader.get_open_positions()) == 0

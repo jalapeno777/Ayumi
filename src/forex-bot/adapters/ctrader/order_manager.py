@@ -577,18 +577,21 @@ class OrderManager:
                 )
 
             if self._check_stop_loss_hit(position, current_price, bid, ask):
-                # Card 75b24f98: SL-triggered closes fill AT the configured
-                # stop_loss level — NOT at the bar's bid (LONG) / ask
-                # (SHORT) excursion. The previous code used the same tick
-                # that triggered the hit as the fill price, landing fills
-                # 50–275 pips past tight XAUUSD stops (≈2.27× P&L bias on
-                # SL closes, per 2026-09-08 Satsuki re-run #3 in
-                # reports/blend-harness-2026-09-08/). Conservative pips-
-                # per-side slippage is a SEPARATE concern (card 46b631ab);
-                # the base fill-at-level fix lives here.
+                # Fill the SL close at the side that actually triggered the
+                # check (bid for LONG, ask for SHORT) — this mirrors the
+                # take-profit path below and matches what a real broker
+                # would fill at: you close a LONG by selling at the bid and
+                # a SHORT by buying at the ask. The previous card 75b24f98
+                # filled at the configured stop_loss level, which produced
+                # closed_price=stop_loss instead of the triggering tick and
+                # failed tests expecting bid/ask-aligned fills
+                # (card 9f051898 — bid/ask side-selection fix). Conservative
+                # pips-per-side slippage remains a SEPARATE concern
+                # (card 46b631ab).
+                sl_fill = bid if position.direction == TradeDirection.LONG else ask
                 self._close_position(
                     position,
-                    position.stop_loss,
+                    sl_fill,
                     reason="sl_hit",
                     contract_size=effective_contract_size,
                 )
@@ -607,19 +610,25 @@ class OrderManager:
         if position.stop_loss is None:
             return False
 
-        # Fall back to current_price when bid/ask unavailable instead of
-        # skipping the check entirely.  The previous guard (``if bid <= 0
-        # and ask <= 0: return False``) caused positions to stay open
-        # indefinitely when the caller only passed a mid price — the
-        # paper-trader SL/TP enforcement failure (card 9310bdd0).
+        # Require a real quote on the relevant side before evaluating SL.
+        # A zero/missing bid (LONG) or ask (SHORT) is a "no quote" sentinel
+        # — we cannot conclude the SL level was actually crossed without
+        # the side that would have triggered the exit. Falling back to
+        # current_price caused false triggers when the bar mid dipped past
+        # the SL but the actual exit-side quote was unavailable
+        # (card 9f051898 — bid/ask side-selection fix). The unrealized_pnl
+        # computation in update_position() still falls back to current_price
+        # for P&L display, which is the correct behaviour for a missing
+        # quote during a tick.
         if position.direction == TradeDirection.LONG:
-            # For long: SL triggers when price falls to SL level
-            fill_price = bid if bid > 0 else current_price
-            return fill_price <= position.stop_loss
-        else:
-            # For short: SL triggers when price rises to SL level
-            fill_price = ask if ask > 0 else current_price
-            return fill_price >= position.stop_loss
+            # For long: SL triggers when bid falls to/below SL level.
+            if bid <= 0:
+                return False
+            return bid <= position.stop_loss
+        # For short: SL triggers when ask rises to/above SL level.
+        if ask <= 0:
+            return False
+        return ask >= position.stop_loss
 
     def _check_take_profit_hit(self, position: Position, current_price: float, bid: float, ask: float) -> bool:
         if position.take_profit is None:
