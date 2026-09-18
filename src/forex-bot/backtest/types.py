@@ -1,7 +1,6 @@
 import math
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
-from enum import Enum
 from typing import Any
 
 from core.config import BacktestConfig as _CoreBacktestConfig
@@ -9,14 +8,8 @@ from core.types import (
     ExitReason,
     SessionType,
     TradeDirection,  # noqa: F401 — re-export for backtest.types.TradeDirection identity
+    TradeOutcome,  # noqa: F401 — re-export for backtest.types.TradeOutcome identity
 )
-
-
-class TradeOutcome(Enum):
-    WIN = "win"
-    LOSS = "loss"
-    BREAKEVEN = "breakeven"
-    OPEN = "open"
 
 
 @dataclass
