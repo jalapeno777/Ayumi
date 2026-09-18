@@ -3509,7 +3509,14 @@ class ForwardTestEngine:
         # an age. Report remaining-seconds (computed at log time) so that
         # consecutive emissions actually decrease when the clock advances,
         # and emit ``None`` when the feed has not yet authed.
-        _token_expires_at = getattr(self._market_feed, "_token_expires_at", None)
+        # Card 0d64bec9: ``_market_feed`` may be a ``MagicMock`` test fixture
+        # (TestReconnectCircuitBreaker._make_engine) where
+        # ``getattr(MagicMock(), '_token_expires_at', None)`` returns a
+        # MagicMock auto-attribute (NOT None). Subtracting ``time.monotonic()``
+        # from a MagicMock yields another MagicMock which ``json.dumps``
+        # cannot serialise — so we route the read through ``_safe_attr``
+        # which detects Mock instances and falls back to the default.
+        _token_expires_at = _safe_attr(self._market_feed, "_token_expires_at", None)
         if _token_expires_at is None:
             _token_validity_remaining_s = None
         else:

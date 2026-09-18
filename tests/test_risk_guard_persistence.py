@@ -242,8 +242,13 @@ class TestStateSurvivesRestart:
 
 
 class TestTradingDayConsistency:
-    """Trading day boundary is 00:00 America/Toronto (changed from 17:00 in
-    commit 4216e55 to align with engine and FTMO guard).
+    """Trading day boundary is 17:00 America/Toronto (FTMO broker daily rollover).
+
+    Card 0d64bec9 (2026-09-18): commit 4216e55b (2026-07-17) moved this to
+    midnight Toronto. That deviation from FTMO contract was reverted here
+    because the live-trading FTMO daily-loss math requires 17:00 EST
+    rollover. See risk_guard.py:_TRADING_DAY_RESET_HOUR module docstring
+    for the FTMO citation.
 
     The daily-loss time-based block (block until UTC midnight) is intentionally
     separate from the trading-day boundary — see test_daily_loss_blocks_until_utc_midnight.
@@ -273,10 +278,16 @@ class TestTradingDayConsistency:
         tz_name = rg_module._TRADING_TZ.key
         assert tz_name == "America/Toronto", f"Expected America/Toronto, got {tz_name}"
 
-    def test_trading_day_boundary_uses_midnight(self, guard):
-        """Reset hour is 0 (midnight Toronto) — changed from 17 in commit 4216e55."""
+    def test_trading_day_boundary_uses_17_et(self, guard):
+        """Reset hour is 17 (5 PM ET, FTMO broker daily rollover).
+
+        Card 0d64bec9 (2026-09-18): reverted from 0 (midnight Toronto, commit
+        4216e55b, 2026-07-17) back to 17:00 ET per FTMO contract adjudication
+        — daily-loss math is calculated from the previous day's balance at
+        5 PM EST (the broker's daily reckoning). See risk_guard.py module
+        docstring at _TRADING_DAY_RESET_HOUR for the FTMO citation.
+        """
         from adapters.ctrader import risk_guard as rg_module
 
         reset_hour = rg_module._TRADING_DAY_RESET_HOUR
-        # Convention changed from 17:00 to 00:00 America/Toronto midnight
-        assert reset_hour == 0, f"Expected 0 (midnight Toronto), got {reset_hour}:00"
+        assert reset_hour == 17, f"Expected 17 (5 PM ET, FTMO broker rollover), got {reset_hour}:00"
