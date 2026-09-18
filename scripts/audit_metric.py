@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import subprocess
 import sys
@@ -82,6 +83,20 @@ def _resolve_value(arg_value: str | None, file_value: str | None, shell_value: s
 def _compute_ratio(claimed: float, actual: float) -> float:
     """Ratio of divergence to actual. EPSILON keeps it defined near zero."""
     return abs(claimed - actual) / max(abs(actual), EPSILON)
+
+
+def _ensure_finite(name: str, value: float) -> None:
+    """Reject NaN / +Infinity / -Infinity as a usage error.
+
+    Non-finite inputs make the divergence gate undefined: NaN comparisons
+    return False (so a NaN-tainted audit would emit ``flagged: false`` and
+    silently bypass the >2x rule), and ±Infinity yields non-standard JSON
+    values. Catch them before any row is built or logged.
+    """
+    if not math.isfinite(value):
+        raise UsageError(
+            f"audit_metric: --{name} must be a finite real number, got {value!r}"
+        )
 
 
 def _build_row(metric: str, claimed: float, actual: float) -> dict:
@@ -195,6 +210,13 @@ def main(argv: list[str]) -> int:
         return 2
     except (FileNotFoundError, subprocess.CalledProcessError) as exc:
         print(f"audit_metric: source failed: {exc}", file=sys.stderr)
+        return 2
+
+    try:
+        _ensure_finite("claim", claimed)
+        _ensure_finite("truth", actual)
+    except UsageError as exc:
+        print(str(exc), file=sys.stderr)
         return 2
 
     row = _build_row(args.metric, claimed, actual)

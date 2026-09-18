@@ -200,6 +200,55 @@ def test_non_numeric_truth_returns_2() -> None:
     assert proc.returncode == 2
 
 
+@pytest.mark.parametrize(
+    "flag,bad_value,good_value",
+    [
+        ("--claim", "nan", "1"),
+        ("--claim", "inf", "1"),
+        ("--claim", "-inf", "1"),
+        ("--truth", "nan", "1"),
+        ("--truth", "inf", "1"),
+        ("--truth", "-inf", "1"),
+    ],
+)
+def test_non_finite_input_returns_2_before_row_emission(
+    tmp_path: Path, flag: str, bad_value: str, good_value: str
+) -> None:
+    """NaN / +Infinity / -Infinity on either side must be a usage error.
+
+    Non-finite inputs make the divergence gate undefined: NaN comparisons
+    return False (so ``flagged`` would silently become ``false`` and a NaN-
+    tainted audit would bypass the >2x rule), and ±Infinity yields non-
+    standard JSON values. The validator must run before any row is built
+    or logged. We assert both the exit code AND that nothing was written
+    to the JSONL log so the gate is enforced before row emission.
+    """
+    log = tmp_path / "audit.jsonl"
+    # Use --flag=value form for the bad value: argparse would otherwise
+    # interpret "-inf" as a flag and reject the line before the validator
+    # ever runs.
+    args = [
+        "--metric",
+        "x",
+        f"{flag}={bad_value}",
+    ]
+    # Place the good value on the opposite side so we know only the bad
+    # value triggers the rejection.
+    if flag == "--claim":
+        args += ["--truth", good_value]
+    else:
+        args += ["--claim", good_value]
+    args += ["--jsonl-log", str(log)]
+
+    proc = _run(args)
+    assert proc.returncode == 2, proc.stderr
+    assert "finite real number" in proc.stderr
+    assert bad_value in proc.stderr
+    # No row should have been emitted to stdout nor appended to the log.
+    assert proc.stdout.strip() == ""
+    assert not log.exists(), "non-finite input must not produce a log row"
+
+
 def test_jsonl_log_is_append_only(tmp_path: Path) -> None:
     log = tmp_path / "audit.jsonl"
     for claimed, actual in [("0.10", "0.10"), ("0.20", "0.20"), ("0.30", "0.30")]:
