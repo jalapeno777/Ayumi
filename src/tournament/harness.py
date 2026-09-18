@@ -359,6 +359,59 @@ class _OpenTrade:
     rr_target: float  # reward:risk ratio at TP1
 
 
+def _cost_fraction_for_trade(
+    *,
+    entry_price: float,
+    sl_price: float,
+    cost_model: "CostModel",
+    r_fraction: float,
+    equity: float,
+) -> float:
+    """Compute per-trade cost as a fraction of equity (FTMO sizing).
+
+    Card 05fa0065 precondition: cost-free scoring produces false positives.
+    The cost is per-round-turn (entry + exit): the ``CostModel`` captures
+    spread + slippage (entry + exit) + commission in dollar terms; this
+    helper converts that to an equity fraction so it can be subtracted from
+    ``pnl_fraction`` directly.
+
+    qty_lots = (r_fraction × equity) / (sl_distance_pips × pip_value_per_lot)
+
+    cost_per_trade = (spread_pips + 2×slippage_pips) × qty_lots × pip_value_per_lot
+                   + commission_per_lot × qty_lots
+
+    cost_fraction = cost_per_trade / equity
+
+    Equity is taken at entry time (v1 approximation — the trade's r_fraction
+    * equity is the risk budget, so cost as a fraction of starting equity is
+    a tight approximation for the per-trade impact).  When ``sl_distance``
+    is zero (degenerate signal), cost_fraction falls back to the worst-case
+    ``spread_pips × pip_value_per_lot × qty + commission × qty`` evaluated
+    at the trade's symbol-typical 10-pip SL distance to avoid division
+    blow-up; this is a defensive fallback, not a primary path (signal
+    validation rejects zero-SL upstream).
+    """
+    sl_distance_price = abs(entry_price - sl_price)
+    sl_distance_pips = sl_distance_price / cost_model.pip_size if cost_model.pip_size > 0 else 0.0
+    if sl_distance_pips <= 0:
+        # Defensive: treat as 10 pips so cost stays in a sane range.
+        sl_distance_pips = 10.0
+    pip_value = cost_model.pip_value_per_lot
+    if pip_value <= 0:
+        return 0.0  # Can't size; v1 keeps the cost-free row.
+
+    # FTMO sizing: qty lots implied by risk budget.
+    qty_lots = (r_fraction * equity) / (sl_distance_pips * pip_value)
+    if qty_lots <= 0:
+        return 0.0
+
+    spread_cost = cost_model.spread_pips * qty_lots * pip_value
+    slippage_cost = 2.0 * cost_model.slippage_pips * qty_lots * pip_value
+    commission_cost = cost_model.commission_per_lot * qty_lots
+    cost_per_trade = spread_cost + slippage_cost + commission_cost
+    return cost_per_trade / equity if equity > 0 else 0.0
+
+
 def _simulate_trades(
     df: DataFrame,
     signals: list[tuple[int, float, float, float]],  # (bar_idx, sl, tp1, dir)
@@ -367,6 +420,7 @@ def _simulate_trades(
     risk_per_trade: float = 0.005,
     rr_target: float = 1.5,
     max_bars_held: int = 100,
+    cost_model: "CostModel | None" = None,
 ) -> list[dict]:
     """Walk open trades against subsequent bars; emit closed-trade events.
 
@@ -392,9 +446,22 @@ def _simulate_trades(
         r_units = delta / sl_distance if sl_distance > 0 else 0.0
         # Trade P&L as a fraction of equity at entry: r_units * r_fraction (1R = +0.5%).
         pnl_fraction = r_units * trade.r_fraction
+        cost_fraction = 0.0
+        if cost_model is not None:
+            cost_fraction = _cost_fraction_for_trade(
+                entry_price=trade.entry_price,
+                sl_price=trade.sl_price,
+                cost_model=cost_model,
+                r_fraction=trade.r_fraction,
+                equity=starting_equity,
+            )
+        # Cost applies to BOTH wins and losses equally (round-turn cost).
+        pnl_fraction_net = pnl_fraction - cost_fraction
         trades.append(
             {
-                "pnl_fraction": pnl_fraction,
+                "pnl_fraction": pnl_fraction_net,
+                "pnl_fraction_gross": pnl_fraction,
+                "cost_fraction": cost_fraction,
                 "bars_held": held,
                 "exit_reason": reason,
                 "entry_bar": trade.entry_bar_index,
@@ -543,6 +610,83 @@ def _extract_signals_from_strategy(
 
 
 @dataclass
+class CostModel:
+    """FTMO-realistic per-round-turn cost model for one symbol.
+
+    Per ``scripts/lbo_cost_stress.py`` and the card 05fa0065 spec:
+
+      cost_per_trade_USD =
+          (spread_pips + 2 × slippage_pips) × qty_lots × pip_value_per_lot
+        + commission_per_lot × qty_lots
+
+    Where ``qty_lots`` is derived from the FTMO risk budget::
+
+        qty_lots = (r_fraction × equity) / (sl_distance_pips × pip_value_per_lot)
+
+    and ``sl_distance_pips = abs(entry_price - sl_price) / pip_size``.
+
+    All fields are required.  ``pip_size`` is the smallest price increment
+    the venue calls a "pip" for this symbol (XAUUSD: 0.10, GBPUSD: 0.0001,
+    USDJPY: 0.01, etc.).  ``pip_value_per_lot`` is the dollar value of one
+    pip on a 1-lot position (XAUUSD/GBPUSD both = $10 at standard lot).
+
+    The model is per-round-turn: cost is applied once per closed trade,
+    regardless of partial exits (partial-exit cost attribution is a v2
+    concern; v1 charges cost to the closing event).
+    """
+
+    spread_pips: float
+    commission_per_lot: float
+    slippage_pips: float
+    pip_value_per_lot: float
+    pip_size: float
+
+
+# Card 05fa0065 acceptance: "FTMO-realistic costs as a PRECONDITION" —
+# cost-free scoring produces false positives (council finding 2026-09-15).
+# Per ``scripts/lbo_cost_stress.py`` conventions, the cost model is per-round-
+# turn (entry + exit): spread + 2×slippage (entry/exit) + commission.
+#
+# Per-symbol defaults below match the LBO cost-stress study:
+#   XAUUSD: spread 2.5 pips, slippage 0.2 pips (each side), commission $3.5/lot RT
+#   GBPUSD: spread 2.0 pips, slippage 0.2 pips (each side), commission $3.5/lot RT
+#   pip_value_per_lot is the dollar value of 1 pip on a 1-lot position
+#   (XAUUSD and GBPUSD both = $10/pip/lot at standard lots).
+#
+# The harness applies the cost model at trade close by computing the FTMO
+# position size implied by the risk-per-trade budget and the trade's SL
+# distance in pips. See ``_cost_fraction_for_trade`` for the exact math.
+FTMO_COST_DEFAULTS: dict[str, CostModel] = {
+    "XAUUSD": CostModel(
+        spread_pips=2.5,
+        commission_per_lot=3.5,
+        slippage_pips=0.2,
+        pip_value_per_lot=10.0,  # XAUUSD: 1 pip = $0.10 price move on 100-oz lot
+        pip_size=0.10,            # XAUUSD: 1 pip = $0.10 price movement
+    ),
+    "GBPUSD": CostModel(
+        spread_pips=2.0,
+        commission_per_lot=3.5,
+        slippage_pips=0.2,
+        pip_value_per_lot=10.0,  # GBPUSD: 1 pip = $0.0001 on 100K-base lot
+        pip_size=0.0001,          # GBPUSD: 1 pip = $0.0001 price movement
+    ),
+}
+
+
+def cost_model_for(symbol: str) -> CostModel | None:
+    """Return the canonical FTMO cost model for ``symbol``, or ``None``.
+
+    Symbols without a known cost model default produce a warning at
+    construction time (caller decides whether to treat as a hard error or
+    fall through to cost-free scoring).  This mirrors the LBO cost-stress
+    study which only covers XAUUSD/GBPUSD; other symbols will need their
+    own cost-model row before being promoted to FTMO-realistic scoring.
+    """
+    return FTMO_COST_DEFAULTS.get(symbol.upper())
+
+
+@dataclass
 class TournamentHarness:
     """Register strategies + run them on a single window.
 
@@ -572,6 +716,7 @@ class TournamentHarness:
     start_date: str | None = None
     end_date: str | None = None
     starting_equity: float = 1.0
+    cost_model: CostModel | None = None
 
     # populated by ``run()``
     source: str = field(default="", init=False)
@@ -677,7 +822,10 @@ class TournamentHarness:
                     signals_emitted=len(signals),
                 )
 
-            trades = _simulate_trades(df, signals)
+            trades = _simulate_trades(
+                df, signals, cost_model=self.cost_model,
+                starting_equity=self.starting_equity,
+            )
             row = build_scorecard_row(
                 strategy_id=strategy_id,
                 symbol=self.symbol,
