@@ -46,6 +46,12 @@ def _guard_repo_data_writes():
       source during this test file's execution — no test code in this
       file touches ``data/`` directly.
 
+      2026-09-18 followup3: ``data/edge_telemetry_state.json`` and
+      ``data/forex/equity_snapshots.jsonl`` are also externally written
+      by PID 2053306 (per ``ps -p 2053306`` + ``/tmp/rg_error_detail.log``
+      E-line); added to ``EXCLUDED_NAMES``, basename match keeps
+      ``forex/`` coverage automatic.
+
     Preservation contract (per card 22fb282b):
 
       * SAME scan semantics as the conftest: snapshot
@@ -72,7 +78,11 @@ def _guard_repo_data_writes():
         yield
         return
 
-    EXCLUDED_NAMES = {"heartbeat_trading.json"}
+    EXCLUDED_NAMES = {
+        "heartbeat_trading.json",
+        "edge_telemetry_state.json",
+        "equity_snapshots.jsonl",
+    }
 
     snapshot: dict[str, tuple[int, int, int]] = {}
     for path in _DATA_DIR.rglob("*"):
