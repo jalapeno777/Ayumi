@@ -487,8 +487,8 @@ def _make_equity_curve(
 
 def test_filter_strategies_removes_low_pf():
     curves = {
-        "good": _make_equity_curve(name="Good", pf=1.5, wr=60.0),
-        "bad_pf": _make_equity_curve(name="BadPF", pf=0.8, wr=60.0),
+        "good": _make_equity_curve(name="Good", pf=1.5, wr=0.60),
+        "bad_pf": _make_equity_curve(name="BadPF", pf=0.8, wr=0.60),
     }
     filtered, removed = filter_strategies(curves)
     assert "good" in filtered
@@ -499,8 +499,8 @@ def test_filter_strategies_removes_low_pf():
 
 def test_filter_strategies_removes_low_wr():
     curves = {
-        "good": _make_equity_curve(name="Good", pf=1.5, wr=60.0),
-        "low_wr": _make_equity_curve(name="LowWR", pf=1.2, wr=30.0),
+        "good": _make_equity_curve(name="Good", pf=1.5, wr=0.60),
+        "low_wr": _make_equity_curve(name="LowWR", pf=1.2, wr=0.30),
     }
     filtered, removed = filter_strategies(curves)
     assert "good" in filtered
@@ -511,8 +511,8 @@ def test_filter_strategies_removes_low_wr():
 
 def test_filter_strategies_keeps_all_profitable():
     curves = {
-        "a": _make_equity_curve(name="A", pf=1.5, wr=60.0),
-        "b": _make_equity_curve(name="B", pf=1.1, wr=50.0),
+        "a": _make_equity_curve(name="A", pf=1.5, wr=0.60),
+        "b": _make_equity_curve(name="B", pf=1.1, wr=0.50),
     }
     filtered, removed = filter_strategies(curves)
     assert len(filtered) == 2
@@ -521,7 +521,7 @@ def test_filter_strategies_keeps_all_profitable():
 
 def test_filter_strategies_multiple_reasons():
     curves = {
-        "bad": _make_equity_curve(name="Bad", pf=0.5, wr=30.0),
+        "bad": _make_equity_curve(name="Bad", pf=0.5, wr=0.30),
     }
     filtered, removed = filter_strategies(curves)
     assert len(filtered) == 0
