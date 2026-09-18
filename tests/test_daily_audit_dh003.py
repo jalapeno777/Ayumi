@@ -64,6 +64,7 @@ def test_stats_fails_positive_is_critical(env, monkeypatch):
 def test_signals_without_writes_is_critical(env, monkeypatch):
     """Signals generated in-engine since last write must trip CRITICAL."""
     _no_failure_evidence(monkeypatch)
+    monkeypatch.setattr(daily_audit, "_get_market_status", lambda now=None: "open")
     monkeypatch.setattr(
         daily_audit, "_signals_since_last_write", lambda m: True
     )
@@ -72,12 +73,40 @@ def test_signals_without_writes_is_critical(env, monkeypatch):
     assert "signals-without-writes" in res.detail
 
 
-def test_missing_file_is_warn(env, monkeypatch):
+def test_missing_file_is_ok_without_positive_evidence(env, monkeypatch):
+    """Missing signal_stats.jsonl with no positive failure evidence is OK.
+
+    Per DH-003 contract: alerts key on positive evidence (stats_fails>0,
+    signals-without-writes), not mere absence. With no file yet, the
+    event-driven writer has not had its first event — absence alone is
+    OK/INFO, not WARN/escalated.
+    """
     stats = env[1]
     stats.unlink()
+    monkeypatch.setattr(daily_audit, "_get_market_status", lambda now=None: "open")
+    monkeypatch.setattr(
+        daily_audit, "_signals_since_last_write", lambda m: False
+    )
     res = daily_audit._ch_dh_signal_stats()
-    assert res.status == "WARN"
-    assert res.escalated
+    assert res.status == "OK"
+    assert not getattr(res, "escalated", False)
+
+
+def test_missing_file_with_signals_is_critical(env, monkeypatch):
+    """Missing signal_stats.jsonl with signals>0 since restart is CRITICAL.
+
+    Positive evidence of writer failure: engine reports signals since
+    last restart but signal_stats.jsonl was never written — writer dead.
+    """
+    stats = env[1]
+    stats.unlink()
+    monkeypatch.setattr(daily_audit, "_get_market_status", lambda now=None: "open")
+    monkeypatch.setattr(
+        daily_audit, "_signals_since_last_write", lambda m: True
+    )
+    res = daily_audit._ch_dh_signal_stats()
+    assert res.status == "CRITICAL"
+    assert "signals-without-writes" in res.detail
 
 
 def test_fresh_file_ok(env, monkeypatch):

@@ -1079,27 +1079,17 @@ def _ch_dh_signal_stats() -> CheckResult:
     """DH-003: signal_stats.jsonl writer health keyed on positive evidence.
 
     The writer is event-driven (appends only on signal events), so a stale
-    mtime alone is NOT a failure. CRITICAL requires positive evidence:
-    ``stats_fails > 0`` in recent [B5 Health] lines, or signals generated
-    in-engine since the last file write without a write (writer dead).
+    mtime OR an absent file alone is NOT a failure. CRITICAL requires
+    positive evidence: ``stats_fails > 0`` in recent [B5 Health] lines, or
+    signals generated in-engine since the last file write without a write
+    (writer dead). Absence with no positive evidence is OK/INFO — the
+    writer has simply not had its first event yet.
     """
     stats_path = ROOT / "data" / "signal_stats.jsonl"
-    market_status = _get_market_status()
-    if not stats_path.exists():
-        return CheckResult(
-            "DH-003",
-            "Data Health",
-            "WARN",
-            "signal_stats.jsonl missing — SignalStatsRecorder not writing",
-            escalated=True,
-        )
-    try:
-        file_age_s = time.time() - stats_path.stat().st_mtime
-        stats_mtime = stats_path.stat().st_mtime
-    except OSError as exc:
-        return CheckResult("DH-003", "Data Health", "WARN", f"stat failed: {exc}")
 
-    # Evidence 1: stats_fails counter from B5 health lines.
+    # Evidence 1: stats_fails counter from B5 health log lines — independent
+    # of signal_stats.jsonl presence (the log records writer failures even
+    # when the file has never been written).
     stats_fails = _recent_stats_fails()
     if stats_fails is not None and stats_fails > 0:
         return CheckResult(
@@ -1111,20 +1101,54 @@ def _ch_dh_signal_stats() -> CheckResult:
             escalated=True,
         )
 
+    # Determine stats_mtime for the signals-without-writes check; use 0
+    # when the file is missing so any signal generation since restart
+    # trips the CRITICAL path.
+    stats_mtime = 0.0
+    if stats_path.exists():
+        try:
+            stats_mtime = stats_path.stat().st_mtime
+        except OSError as exc:
+            return CheckResult("DH-003", "Data Health", "WARN", f"stat failed: {exc}")
+
     # Evidence 2: signals-without-writes — engine generated signals since
-    # the last file write but the file was never written.
+    # the last file write but no write occurred.
     if _signals_since_last_write(stats_mtime):
+        if stats_path.exists():
+            age_s = time.time() - stats_mtime
+            detail = (
+                f"signal_stats.jsonl mtime={age_s:.0f}s stale while engine reports signals "
+                "since last write — signals-without-writes"
+            )
+        else:
+            detail = (
+                "signal_stats.jsonl not yet written while engine reports signals "
+                "since last restart — signals-without-writes"
+            )
         return CheckResult(
             "DH-003",
             "Data Health",
             "CRITICAL",
-            f"signal_stats.jsonl mtime={file_age_s:.0f}s stale while engine reports signals "
-            "since last write — signals-without-writes",
+            detail,
             auto_remediation="A3 — escalation card for signal_stats writer",
             escalated=True,
         )
 
-    # No positive failure evidence: event-driven staleness is by design.
+    # No positive failure evidence: event-driven staleness or absence is by design.
+    market_status = _get_market_status()
+    if not stats_path.exists():
+        # Per DH-003 contract: alerts key on positive evidence, not mere
+        # absence. With no file yet, the event-driven writer has simply
+        # not had its first event — OK/INFO, not WARN/escalated.
+        return CheckResult(
+            "DH-003",
+            "Data Health",
+            "OK",
+            "signal_stats.jsonl not yet written — event-driven writer, "
+            f"no positive failure evidence (market={market_status})",
+        )
+
+    file_age_s = time.time() - stats_mtime
     detail = (
         f"signal_stats.jsonl mtime={file_age_s:.0f}s "
         f"(event-driven writer, no failure evidence, market={market_status})"
