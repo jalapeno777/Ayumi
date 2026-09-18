@@ -23,10 +23,8 @@ import logging
 from unittest.mock import MagicMock
 
 import pytest
-
 from adapters.ctrader.kill_switch import KillSwitchManager
 from risk.ftmo_guard import FTMOAction, FTMOGuard
-
 
 # ── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -169,6 +167,97 @@ class TestHarnessHaltOnBreach:
         assert action in (FTMOAction.FREEZE, FTMOAction.KILL)
         # But the kill switch was never actually engaged (suppressed)
         assert disabled_ks.is_active() is False
+
+    def test_harness_eval_loop_halts_on_global_kill_switch(self, enabled_ks):
+        """Card 644c565b regression: kill_switch.is_globally_killed() halts the loop.
+
+        Mirrors the harness pattern: ``if engine._kill_switch.is_globally_killed():
+        break``. Even when _ftmo_guard.update() does NOT return freeze/kill
+        (balance flat, no realized breach), the eval loop must halt the moment
+        the shared kill_switch flips to GLOBAL KILL — this is the path
+        risk_guard takes on daily-DD 3.17% breach (re-run #3: 0.55% realized).
+        """
+        guard = FTMOGuard(
+            kill_switch=enabled_ks,
+            starting_balance=10_000.0,
+        )
+        engine_running = True
+        bars_processed = 0
+        kill_at_bar = 5
+        total_bars = 200
+
+        for bar_idx in range(total_bars):
+            # Mirror the harness: _ftmo_guard.update() is called every bar.
+            # Balance stays flat so the guard never returns freeze/kill on
+            # its own — only the kill_switch path should trigger the halt.
+            action = guard.update(current_balance=10_000.0, open_positions=1)
+
+            # Simulate risk_guard tripping GLOBAL KILL partway through
+            # (re-run #3 cadence: kill fires at bar 5 of 200).
+            if bar_idx == kill_at_bar:
+                enabled_ks.activate_global_kill(
+                    reason="risk_guard daily-DD 3.17%",
+                    triggered_by="risk_guard",
+                )
+
+            # Card 644c565b regression: kill_switch check (the NEW halt path
+            # added to scripts/backtest_blend_harness.py). Sits right after
+            # the FTMO freeze/kill check in production code.
+            if enabled_ks.is_globally_killed():
+                engine_running = False
+                break
+            if action.value in ("freeze", "kill"):
+                engine_running = False
+                break
+            bars_processed += 1
+
+        # The loop must have halted, with the kill_switch actually engaged
+        # and the FTMO guard still NOT in freeze/kill (proves the halt came
+        # from the kill_switch check, not from the FTMO guard).
+        assert engine_running is False
+        assert enabled_ks.is_globally_killed() is True
+        assert bars_processed == kill_at_bar
+        assert bars_processed < total_bars
+
+    def test_harness_eval_loop_does_not_halt_when_kill_switch_disabled(self, disabled_ks):
+        """With kill_switch disabled=False (class default), global-kill path is inert.
+
+        A disabled kill_switch suppresses activate_global_kill() — the harness
+        eval loop should keep running in that mode (matches the original
+        test_ftmo_freeze_engages_enabled_kill_switch intent: kill_switch
+        disables are a pre-existing design choice, not something card 644c565b
+        changes).
+        """
+        guard = FTMOGuard(
+            kill_switch=disabled_ks,
+            starting_balance=10_000.0,
+        )
+        engine_running = True
+        bars_processed = 0
+        kill_at_bar = 5
+        total_bars = 20
+
+        for bar_idx in range(total_bars):
+            action = guard.update(current_balance=10_000.0, open_positions=1)
+            if bar_idx == kill_at_bar:
+                # Suppressed by kill_switch.is_disabled branch inside
+                # activate_global_kill().
+                disabled_ks.activate_global_kill(
+                    reason="should be suppressed",
+                    triggered_by="risk_guard",
+                )
+            if disabled_ks.is_globally_killed():
+                engine_running = False
+                break
+            if action.value in ("freeze", "kill"):
+                engine_running = False
+                break
+            bars_processed += 1
+
+        # Disabled kill_switch never engaged → loop kept running to the end.
+        assert engine_running is True
+        assert disabled_ks.is_active() is False
+        assert bars_processed == total_bars
 
 
 # ── 3. Startup log line is loud and informative ──────────────────────────────
