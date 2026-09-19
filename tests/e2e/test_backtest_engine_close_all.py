@@ -48,7 +48,7 @@ class TestCloseAllOpenTradesExitPrice:
         at the last bar's close price when data ends, not at each other's price.
         """
         config = _make_config()
-        engine = BacktestEngine(config)
+        engine = BacktestEngine(config, strategies=[])
 
         # Create bars: trade opens at bar 1, another trade opens at bar 2,
         # backtest ends at bar 3
@@ -135,7 +135,7 @@ class TestCloseAllOpenTradesExitPrice:
         A single trade open at end of data should be closed at last bar's close.
         """
         config = _make_config()
-        engine = BacktestEngine(config)
+        engine = BacktestEngine(config, strategies=[])
 
         bars = [
             _make_bar(9, 2000.0),  # bar 0 - trade entry
