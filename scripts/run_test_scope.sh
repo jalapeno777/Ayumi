@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-REPO=/home/TacoPants/projects/Ayumi
+REPO=$AYUMI_ROOT
 cd "$REPO"
 
 usage() {

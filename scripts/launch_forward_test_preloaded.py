@@ -35,7 +35,7 @@ def fetch_h1_bars(count: int = 100) -> list[dict]:
     client = CTraderOpenApiClient(
         client_id=os.getenv("CTRADER_OPENAPI_CLIENT_ID"),
         client_secret=os.getenv("CTRADER_OPENAPI_CLIENT_SECRET"),
-        account_id=46877902,
+        account_id=REDACTED_CTRADER_ACCOUNT,
         access_token=os.getenv("CTRADER_OPENAPI_ACCESS_TOKEN"),
     )
     client.connect()

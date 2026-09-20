@@ -49,7 +49,7 @@ Already committed in `1cd0d94` (parent branch). No dirty changes. Not part of P5
 ### Builder 1: Modular Tests
 
 ```
-/home/TacoPants/projects/Ayumi/.venv/bin/python3 -m pytest \
+$AYUMI_ROOT/.venv/bin/python3 -m pytest \
   tests/adapters/ctrader/test_execution_permission.py \
   tests/adapters/ctrader/test_p5a_characterization.py \
   tests/adapters/ctrader/test_p5a_integration.py \
@@ -60,7 +60,7 @@ Already committed in `1cd0d94` (parent branch). No dirty changes. Not part of P5
 ### Builder 2: Safety Test Compatibility
 
 ```
-/home/TacoPants/projects/Ayumi/.venv/bin/python3 -m pytest \
+$AYUMI_ROOT/.venv/bin/python3 -m pytest \
   tests/test_kill_switch_auto.py \
   tests/test_resilience_integration.py \
   tests/test_forward_test_engine_wiring.py \

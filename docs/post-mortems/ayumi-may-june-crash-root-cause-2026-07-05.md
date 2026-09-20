@@ -381,10 +381,10 @@ StartLimitBurst=5
 
 [Service]
 Type=simple
-User=TacoPants
-Group=TacoPants
-WorkingDirectory=/home/TacoPants/projects/Ayumi
-ExecStart=/home/TacoPants/projects/Ayumi/.venv/bin/python scripts/launch_blend_forward_test.py --symbols GBPUSD,USDJPY --live
+User=$USER
+Group=$USER
+WorkingDirectory=$AYUMI_ROOT
+ExecStart=$AYUMI_ROOT/.venv/bin/python scripts/launch_blend_forward_test.py --symbols GBPUSD,USDJPY --live
 
 # Restart policy — derived from findings
 Restart=on-failure
@@ -405,8 +405,8 @@ MemoryMax=512M                   # hard cap; the 210 MB peak was anomalous
 MemoryAccounting=yes
 
 # Logging — ensure log rotation covers the gap documented in §4 E
-StandardOutput=append:/home/TacoPants/projects/Ayumi/logs/forward_test-stdout.log
-StandardError=append:/home/TacoPants/projects/Ayumi/logs/forward_test-stderr.log
+StandardOutput=append:$AYUMI_ROOT/logs/forward_test-stdout.log
+StandardError=append:$AYUMI_ROOT/logs/forward_test-stderr.log
 
 [Install]
 WantedBy=multi-user.target
@@ -483,20 +483,20 @@ A: Memory leaks in application code (none identified yet). Log rotation policy (
 
 ## 7. Files Read for This Investigation
 
-- `/home/TacoPants/projects/Ayumi/logs/ayumi_2026-04-24.log` … `ayumi_2026-05-20.log`, `ayumi_2026-06-09.log` … `ayumi_2026-06-16.log`
-- `/home/TacoPants/projects/Ayumi/logs/forward_test*.log`
-- `/home/TacoPants/projects/Ayumi/docs/post-mortems/ctrader-openapi-connection-2026-06-11.md`
-- `/home/TacoPants/projects/Ayumi/docs/post-mortems/forward-test-regression-cycle-2026-06-12.md`
-- `/home/TacoPants/projects/Ayumi/docs/plans/ayumi-reliability-sprint-2026-07-05.md` (§2.1, §2.2)
-- `/home/TacoPants/projects/Ayumi/scripts/launch_blend_forward_test.py` (lines 30–40, 670–750, 850–890)
-- `/home/TacoPants/projects/Ayumi/src/forex-bot/adapters/ctrader/connection_watchdog.py` (full)
-- `/home/TacoPants/projects/Ayumi/src/forex-bot/adapters/ctrader/reconnect_strategy.py` (full)
-- `/home/TacoPants/projects/Ayumi/src/forex-bot/adapters/ctrader/connection_manager.py` (lines 780–860 — `authenticate_with_retry`)
-- `/home/TacoPants/projects/Ayumi/src/forex-bot/adapters/ctrader/connection_state.py` (lines 1–130 — `_VALID_TRANSITIONS`)
-- `/home/TacoPants/projects/Ayumi/src/forex-bot/adapters/ctrader/forward_test_engine.py` (lines 430–470 — `start()`)
+- `$AYUMI_ROOT/logs/ayumi_2026-04-24.log` … `ayumi_2026-05-20.log`, `ayumi_2026-06-09.log` … `ayumi_2026-06-16.log`
+- `$AYUMI_ROOT/logs/forward_test*.log`
+- `$AYUMI_ROOT/docs/post-mortems/ctrader-openapi-connection-2026-06-11.md`
+- `$AYUMI_ROOT/docs/post-mortems/forward-test-regression-cycle-2026-06-12.md`
+- `$AYUMI_ROOT/docs/plans/ayumi-reliability-sprint-2026-07-05.md` (§2.1, §2.2)
+- `$AYUMI_ROOT/scripts/launch_blend_forward_test.py` (lines 30–40, 670–750, 850–890)
+- `$AYUMI_ROOT/src/forex-bot/adapters/ctrader/connection_watchdog.py` (full)
+- `$AYUMI_ROOT/src/forex-bot/adapters/ctrader/reconnect_strategy.py` (full)
+- `$AYUMI_ROOT/src/forex-bot/adapters/ctrader/connection_manager.py` (lines 780–860 — `authenticate_with_retry`)
+- `$AYUMI_ROOT/src/forex-bot/adapters/ctrader/connection_state.py` (lines 1–130 — `_VALID_TRANSITIONS`)
+- `$AYUMI_ROOT/src/forex-bot/adapters/ctrader/forward_test_engine.py` (lines 430–470 — `start()`)
 - `/etc/systemd/system/ayumi-forward-test.service` (current)
 - `/etc/systemd/system/ayumi-forward-test.service.bak` (2026-06-05 snapshot)
-- `/home/TacoPants/.config/systemd/user/ayumi-forward-test.service` (Task 5.2 target file)
+- `/home/$USER/.config/systemd/user/ayumi-forward-test.service` (Task 5.2 target file)
 - Git history for: `a487b69`, `a0663c1`, `21f73a6`, `7af7a73`, `17e72b0`, `1f4b3aa`, `ab8e4c5`, `affd729`, `fd17c86`, `9dab84d`, `667ee33`, `3644108`, `c845983`, `198a10f`, `2225225`, `72252c2`
 
 ---

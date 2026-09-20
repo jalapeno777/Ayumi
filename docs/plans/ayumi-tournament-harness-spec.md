@@ -131,7 +131,7 @@ $ python3 scripts/run_tournament.py --smoke
 ========================================================================
   Window:      2024-06-03 → 2024-06-09  (120 bars)
   Symbol/TF:   USDJPY/H1
-  Source:      /home/TacoPants/projects/Ayumi/data/ayumi_market.duckdb
+  Source:      $AYUMI_ROOT/data/ayumi_market.duckdb
   bb_rsi_reversion             signals=   0   trades=   0
   srmr_plus                    signals=   0   trades=   0
 

@@ -31,7 +31,7 @@ systemctl --user stop ayumi-paper-mvp
 systemctl --user restart ayumi-paper-mvp
 ```
 
-The service runs under your user account (`TacoPants`) with automatic restart on failure (10-second delay).
+The service runs under your user account (`$USER`) with automatic restart on failure (10-second delay).
 
 ### Enable/Disable Auto-Start
 

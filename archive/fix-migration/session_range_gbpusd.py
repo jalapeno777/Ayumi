@@ -131,7 +131,7 @@ def _on_position_closed(trade_logger: TradeLogger):
 def load_credentials_from_env() -> cTraderCredentials:
     from dotenv import load_dotenv
 
-    load_dotenv("/home/TacoPants/projects/Ayumi/.env")
+    load_dotenv("$AYUMI_ROOT/.env")
     return cTraderCredentials(
         host=os.environ.get("CTRADER_HOST", ""),
         port=int(os.environ.get("CTRADER_SSL_PORT", "5202")),

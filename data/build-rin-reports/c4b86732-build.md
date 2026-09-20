@@ -2,7 +2,7 @@
 
 > **Card:** [BUILD][AYUMI] Tournament harness fail-loud guard + 17-strategy registration sweep
 > **Branch:** tsubaki/c4b86732-harness-fail-loud
-> **Worktree:** /home/TacoPants/projects/Ayumi/.worktrees/tsubaki-c4b86732-harness-guard
+> **Worktree:** $AYUMI_ROOT/.worktrees/tsubaki-c4b86732-harness-guard
 > **Builder:** Tsubaki (build only — Ava reviews, Reina merges)
 > **Date:** 2026-09-14
 

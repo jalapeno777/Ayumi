@@ -117,7 +117,7 @@ class TestTradeAppCredentialResolution(unittest.TestCase):
         defaults = dict(
             client_id="primary_app_id",
             client_secret="primary_secret",  # noqa: S106
-            account_id=46877902,
+            account_id=REDACTED_CTRADER_ACCOUNT,
             access_token="test_token",  # noqa: S106
         )
         defaults.update(kwargs)
@@ -335,10 +335,10 @@ class TestConcurrentSessionSimulation(unittest.TestCase):
         trade_app = "trade_app_id"
 
         active_sessions = [
-            {"app_id": spot_app, "account_id": 46877902, "connection": "spot_feed_tcp"},
+            {"app_id": spot_app, "account_id": REDACTED_CTRADER_ACCOUNT, "connection": "spot_feed_tcp"},
             {
                 "app_id": trade_app,
-                "account_id": 46877902,
+                "account_id": REDACTED_CTRADER_ACCOUNT,
                 "connection": "data_client_tcp",
             },
         ]
@@ -349,7 +349,7 @@ class TestConcurrentSessionSimulation(unittest.TestCase):
 
         for session in active_sessions:
             self.assertIsNotNone(session["app_id"])
-            self.assertEqual(session["account_id"], 46877902)
+            self.assertEqual(session["account_id"], REDACTED_CTRADER_ACCOUNT)
 
     def test_same_app_would_conflict(self):
         """Document the failure mode: same app_id for both connections fails.
@@ -362,7 +362,7 @@ class TestConcurrentSessionSimulation(unittest.TestCase):
         active_sessions = [
             {
                 "app_id": same_app,
-                "account_id": 46877902,
+                "account_id": REDACTED_CTRADER_ACCOUNT,
                 "connection": "first_tcp",
             }
         ]

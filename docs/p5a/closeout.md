@@ -35,7 +35,7 @@ Phase 5A delivered cTrader adapter integration, two-layer kill switch enforcemen
 - 5 xfailed freeze activation tests (freeze code not yet activated)
 - ReactorManager mock for unit test isolation
 - tick-to-bar pipeline stall investigation (bars building normally after restart — may have been transient)
-- File permission fix for `data/kill_switches/global.state` and `data/signal_stats.jsonl` (root/TacoPants ownership)
+- File permission fix for `data/kill_switches/global.state` and `data/signal_stats.jsonl` (root/$USER ownership)
 - **Kill switch stale-state persistence bug** — `KillSwitchManager._load_state()` reads `global.state` on every startup and re-arms whatever was persisted. A kill switch tripped Jun 9 stayed active for 17 days across multiple restarts because the state file was never cleared. Risk guard's `daily_trade_count > 0` check is irrelevant when the switch is already active from disk. Fix options: (a) auto-expire after N hours of no live activity, (b) require re-confirmation on restart after 24h, (c) reset on new trading day. Also need a `clear_kill_switch` CLI/API endpoint so it can be cleared without editing the state file + restarting.
 
 ## Council Decisions Implemented
@@ -73,12 +73,12 @@ Phase 5A delivered cTrader adapter integration, two-layer kill switch enforcemen
 | **Smoke test** | — | ✅ 28/28 passed | unit/risk + unit/ict |
 
 ## Forward Test Status
-- **Service:** `ayumi-forward-test.service` — active (running as TacoPants)
+- **Service:** `ayumi-forward-test.service` — active (running as $USER)
 - **Market data:** 6,375+ ticks received, 16+ bars built, 0 signals since restart
 - **Execution:** 0 trades (strategies evaluating, no signals generated yet)
 - **Paper account:** $10,000 (unchanged, no positions)
 - **Kill switch:** Cleared (was stale from Jun 9 — root caused, logged to P5B)
-- **Permission issues:** RESOLVED — all root-owned files chowned to TacoPants
+- **Permission issues:** RESOLVED — all root-owned files chowned to $USER
 - **stats_fails=0** — no PermissionError crashes
 
 ## Test Debt Sprint (2026-06-26)
@@ -92,7 +92,7 @@ Phase 5A delivered cTrader adapter integration, two-layer kill switch enforcemen
 ## Risk Register
 | Risk | Severity | Status |
 |------|----------|--------|
-| Kill switch file ownership (root vs TacoPants) | Medium | Tracked — card `41362916` |
+| Kill switch file ownership (root vs $USER) | Medium | Tracked — card `41362916` |
 | tick-to-bar pipeline intermittent stall | Medium | Tracked — card `c17448ea` |
 | 31 pre-existing test failures (risk, kill switch) | Low | Tracked — cards `36971d52`, `317b0f13`, `2cbce061` |
 | Pre-push hook is repo file but `core.hooksPath` must be set manually per clone | Low | Documented in commit `54d7aac` |

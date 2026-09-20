@@ -159,7 +159,7 @@ The original gated blend study script is not in git history. The v7 script (`scr
 
 ```bash
 # Full 4-strategy + 5-strategy blend backtest
-cd /home/TacoPants/projects/Ayumi
+cd $AYUMI_ROOT
 python3 scripts/run_blend_5strat.py
 
 # Walk-forward + Monte Carlo analysis

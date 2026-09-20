@@ -31,7 +31,7 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 # Resolve project paths
-WORKSPACE = Path("/home/TacoPants/projects/Ayumi")
+WORKSPACE = Path("$AYUMI_ROOT")
 LAUNCHER = WORKSPACE / "scripts" / "launch_blend_forward_test.py"
 
 

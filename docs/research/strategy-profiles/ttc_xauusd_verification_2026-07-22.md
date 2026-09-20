@@ -1,7 +1,7 @@
 # ttc_xauusd XAUUSD M15 — Anomaly Verification Report
 
 **Generated:** 2026-07-22 (subagent depth 1/1, fresh re-investigation)
-**Repo:** `/home/TacoPants/projects/Ayumi`
+**Repo:** `$AYUMI_ROOT`
 **Strategy under test:** `ttc_xauusd` (wrapper) → `TTSStrategy` (`backtest/strategies/tts_strategy.py`)
 **Data source:** DuckDB `data/ayumi_market.duckdb` (XAUUSD M15, 71,747 bars, 2022-01-12 → 2026-07-10)
 
@@ -184,7 +184,7 @@ Script: `scripts/verify_ttc_xauusd_verification.py`
 Full machine-readable results: `/tmp/ttc_xauusd_verification.json`
 
 ```bash
-cd /home/TacoPants/projects/Ayumi
+cd $AYUMI_ROOT
 python3 scripts/verify_ttc_xauusd_verification.py
 ```
 

@@ -5,7 +5,7 @@
 
 set -o pipefail
 
-VENV_PYTEST="/home/TacoPants/projects/Ayumi/.venv/bin/pytest"
+VENV_PYTEST="$AYUMI_ROOT/.venv/bin/pytest"
 
 _fail() { echo "❌ $1"; exit 1; }
 
@@ -25,7 +25,7 @@ fi
 # Pre-push runs collection on all categories to catch import/path breaks.
 # Full test runs are done manually via: bash scripts/run_test_scope.sh --unit
 # Actual test failures are tracked as separate workboard cards (test debt).
-VENV_PYTHON="/home/TacoPants/projects/Ayumi/.venv/bin/python3"
+VENV_PYTHON="$AYUMI_ROOT/.venv/bin/python3"
 
 if [ -f "$VENV_PYTHON" ]; then
     echo "🧪 Running collection check (all categories)..."

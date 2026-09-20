@@ -22,15 +22,15 @@ A service fails to start (or restart) because a PID file from a prior run is own
 
 ## Root Cause
 
-After system maintenance, container rebuilds, or manual `sudo` invocations, stale PID files can be left behind in `/tmp` or `data/` owned by `root`. When the service restarts under its normal user (`TacoPants`), it cannot write to or remove the root-owned file, causing a `PermissionError` that blocks startup.
+After system maintenance, container rebuilds, or manual `sudo` invocations, stale PID files can be left behind in `/tmp` or `data/` owned by `root`. When the service restarts under its normal user (`$USER`), it cannot write to or remove the root-owned file, causing a `PermissionError` that blocks startup.
 
 ### Affected PID Files
 
 | File | Owner (normal) | Owner (problem) | Service |
 |------|----------------|-----------------|---------|
-| `/tmp/ayumi-worker.pid` | TacoPants | root | Legacy watchdog (v1) |
-| `/tmp/ayumi-worker/worker.pid` | TacoPants | root | Current watchdog (`ayumi_watchdog.py`) |
-| `data/forward_test.pid` | TacoPants | root | Forward test engine |
+| `/tmp/ayumi-worker.pid` | $USER | root | Legacy watchdog (v1) |
+| `/tmp/ayumi-worker/worker.pid` | $USER | root | Current watchdog (`ayumi_watchdog.py`) |
+| `data/forward_test.pid` | $USER | root | Forward test engine |
 
 ### Historical Incidents
 
@@ -43,10 +43,10 @@ After system maintenance, container rebuilds, or manual `sudo` invocations, stal
 
 ```bash
 # Check common PID file locations
-ls -la /tmp/ayumi-worker.pid /tmp/ayumi-worker/worker.pid /home/TacoPants/projects/Ayumi/data/forward_test.pid 2>/dev/null
+ls -la /tmp/ayumi-worker.pid /tmp/ayumi-worker/worker.pid $AYUMI_ROOT/data/forward_test.pid 2>/dev/null
 ```
 
-Look for files owned by `root` instead of `TacoPants`.
+Look for files owned by `root` instead of `$USER`.
 
 ### Step 2: Verify the PID is not actively in use
 
@@ -66,15 +66,15 @@ If the process is NOT running, the PID file is stale and safe to remove.
 # Remove the stale file (requires sudo if owned by root)
 sudo rm -f /tmp/ayumi-worker.pid
 sudo rm -f /tmp/ayumi-worker/worker.pid
-sudo rm -f /home/TacoPants/projects/Ayumi/data/forward_test.pid
+sudo rm -f $AYUMI_ROOT/data/forward_test.pid
 ```
 
 ### Step 4: Fix directory ownership (if needed)
 
 ```bash
 # Ensure the watchdog runtime directory is owned by the correct user
-sudo chown -R TacoPants:TacoPants /tmp/ayumi-worker/
-sudo chown -R TacoPants:TacoPants /home/TacoPants/projects/Ayumi/data/
+sudo chown -R $USER:$USER /tmp/ayumi-worker/
+sudo chown -R $USER:$USER $AYUMI_ROOT/data/
 ```
 
 ### Step 5: Restart the affected service
@@ -87,10 +87,10 @@ sudo systemctl restart ayumi-forward-test.service
 # Kill existing instance if any
 pkill -f ayumi_watchdog.py
 # Restart as the correct user
-sudo -u TacoPants python3 /home/TacoPants/ayumi_watchdog.py &
+sudo -u $USER python3 /home/$USER/ayumi_watchdog.py &
 
 # Or use the restart script for forward test
-sudo -u TacoPants bash /home/TacoPants/projects/Ayumi/scripts/restart_forward_test.sh
+sudo -u $USER bash $AYUMI_ROOT/scripts/restart_forward_test.sh
 ```
 
 ## Verification
@@ -101,7 +101,7 @@ systemctl status ayumi-forward-test.service
 
 # Confirm PID file has correct ownership
 ls -la /tmp/ayumi-worker.pid /tmp/ayumi-worker/worker.pid data/forward_test.pid 2>/dev/null
-# All should show TacoPants as owner
+# All should show $USER as owner
 
 # Confirm the process is running
 pgrep -f launch_blend_forward_test && echo "forward_test running"
@@ -110,14 +110,14 @@ pgrep -f ayumi_watchdog.py && echo "watchdog running"
 
 ## Prevention
 
-1. **Never run services as root.** Always use the service user (`TacoPants`) or a dedicated service account.
+1. **Never run services as root.** Always use the service user (`$USER`) or a dedicated service account.
 2. **Use systemd management** (`ayumi-forward-test.service`) instead of manual process launches — systemd handles PID lifecycle automatically.
 3. **Audit `/tmp` PID files periodically** — stale root-owned files indicate prior misconfiguration.
 4. **Add PID file cleanup to deployment scripts** — remove old PID files before starting services.
 
 ## Related Files
 
-- `ayumi_watchdog.py` (runtime: `/home/TacoPants/ayumi_watchdog.py`) — writes `/tmp/ayumi-worker/worker.pid`
+- `ayumi_watchdog.py` (runtime: `/home/$USER/ayumi_watchdog.py`) — writes `/tmp/ayumi-worker/worker.pid`
 - `scripts/launch_blend_forward_test.py` — writes `data/forward_test.pid`
 - `scripts/restart_forward_test.sh` — manual restart with health verification
 - `/etc/systemd/system/ayumi-forward-test.service` — systemd unit with `Restart=always`

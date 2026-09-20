@@ -4,7 +4,7 @@
 **Sprint**: sprint-2026-09-13-ayumi-test-debt
 **Author**: Reina (subagent dispatch 2026-09-13)
 **Branch**: reina/3e83f2c6-113-triage
-**Worktree**: /home/TacoPants/projects/Ayumi/.worktrees/reina-3e83f2c6-113-triage
+**Worktree**: $AYUMI_ROOT/.worktrees/reina-3e83f2c6-113-triage
 **Base**: main @ 5c0f9941 (post d85c8d89 isolation fix merge)
 
 ---

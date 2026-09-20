@@ -27,7 +27,7 @@
 ## 1. Setup
 
 ```bash
-source /home/TacoPants/projects/Ayumi/.venv/bin/activate
+source $AYUMI_ROOT/.venv/bin/activate
 pip install duckdb          # 21.5 MB wheel, ~3 s
 # → Successfully installed duckdb-1.5.4
 ```
@@ -135,7 +135,7 @@ This is by design (DuckDB doesn't want mixed read/write semantics on one file). 
 ### 4.6 SQLite ATTACH
 
 ```
-[6] SQLite ATTACH  (/home/TacoPants/projects/Ayumi/data/trading.db)
+[6] SQLite ATTACH  ($AYUMI_ROOT/data/trading.db)
   ATTACH succeeded
   Tables visible: ['_schema_version', 'bars', 'daily_summary',
                    'equity_curve', 'rolling_metrics', 'sqlite_sequence', 'trades']

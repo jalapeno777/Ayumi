@@ -96,7 +96,7 @@ This guide helps team members execute Day 1-14 activities for Week 1 Community G
 
 Track daily progress:
 ```bash
-cd /home/TacoPants/projects/Ayumi/worktrees/nash
+cd $AYUMI_ROOT/worktrees/nash
 python3 scripts/week1_metrics_tracker.py
 ```
 
@@ -110,13 +110,13 @@ This will show:
 
 ### Test Referral System
 ```bash
-cd /home/TacoPants/projects/Ayumi/worktrees/nash
+cd $AYUMI_ROOT/worktrees/nash
 python3 scripts/test_referral_system.py
 ```
 
 ### Start Dashboard Server
 ```bash
-cd /home/TacoPants/projects/Ayumi/worktrees/nash
+cd $AYUMI_ROOT/worktrees/nash
 python3 -m src.crypto.bot
 ```
 Server runs on: http://localhost:8080
@@ -179,11 +179,11 @@ Server runs on: http://localhost:8080
 
 ## Resources
 
-- [Full Execution Plan](/home/TacoPants/projects/Ayumi/worktrees/nash/docs/plans/week-1-community-growth-execution.md)
-- [Executive Summary](/home/TacoPants/projects/Ayumi/worktrees/nash/docs/plans/week-1-executive-summary.md)
-- [Referral Announcement](/home/TacoPants/projects/Ayumi/worktrees/nash/docs/media/referral-program-launch-announcement.md)
-- [Telegram Content](/home/TacoPants/projects/Ayumi/worktrees/nash/docs/media/week-1-telegram-content-calendar.md)
-- [Email Sequence](/home/TacoPants/projects/Ayumi/worktrees/nash/docs/media/email-onboarding-sequence.md)
+- [Full Execution Plan]($AYUMI_ROOT/worktrees/nash/docs/plans/week-1-community-growth-execution.md)
+- [Executive Summary]($AYUMI_ROOT/worktrees/nash/docs/plans/week-1-executive-summary.md)
+- [Referral Announcement]($AYUMI_ROOT/worktrees/nash/docs/media/referral-program-launch-announcement.md)
+- [Telegram Content]($AYUMI_ROOT/worktrees/nash/docs/media/week-1-telegram-content-calendar.md)
+- [Email Sequence]($AYUMI_ROOT/worktrees/nash/docs/media/email-onboarding-sequence.md)
 
 ## Team Coordination
 

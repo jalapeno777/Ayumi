@@ -71,7 +71,7 @@ RUNNER_PER_WINDOW = PerWindowCriteria(
     max_drawdown=0.05,
 )
 
-DEFAULT_DATA_FILE = "/home/TacoPants/projects/Ayumi/data/forex/historical/EURUSD_H1.csv"
+DEFAULT_DATA_FILE = "$AYUMI_ROOT/data/forex/historical/EURUSD_H1.csv"
 
 
 def run_individual_backtests(bars, config):

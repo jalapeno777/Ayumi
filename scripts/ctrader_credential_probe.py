@@ -13,7 +13,7 @@ Writes a JSONL record to data/ops/ctrader_credential_health.jsonl and exits:
   2 = broken (missing/placeholder tokens or API unreachable)
 
 Cron example (daily at 06:00):
-  0 6 * * * cd /home/TacoPants/projects/Ayumi && source .venv/bin/activate && python3 scripts/ctrader_credential_probe.py >> data/ops/ctrader_credential_probe.log 2>&1
+  0 6 * * * cd $AYUMI_ROOT && source .venv/bin/activate && python3 scripts/ctrader_credential_probe.py >> data/ops/ctrader_credential_probe.log 2>&1
 """  # noqa: E501
 
 from __future__ import annotations

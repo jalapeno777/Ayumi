@@ -32,7 +32,7 @@ import re
 import sys
 from pathlib import Path
 
-WORKSPACE = Path("/home/TacoPants/projects/Ayumi")
+WORKSPACE = Path("$AYUMI_ROOT")
 LAUNCHER = WORKSPACE / "scripts" / "launch_blend_forward_test.py"
 ENGINE = WORKSPACE / "src" / "forex-bot" / "adapters" / "ctrader" / "forward_test_engine.py"
 

@@ -59,7 +59,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-WORKSPACE = Path("/home/TacoPants/projects/Ayumi")
+WORKSPACE = Path("$AYUMI_ROOT")
 ENGINE = WORKSPACE / "src" / "forex-bot" / "adapters" / "ctrader" / "forward_test_engine.py"
 
 

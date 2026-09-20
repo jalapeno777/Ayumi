@@ -6,7 +6,7 @@ embargo to compare metrics and determine if the anomalous PF=13.38 was
 inflated by autocorrelation leakage.
 
 Usage:
-    cd /home/TacoPants/projects/Ayumi
+    cd $AYUMI_ROOT
     PYTHONPATH=src/forex-bot python3 scripts/revalidate_ttc_embargo.py
 """
 

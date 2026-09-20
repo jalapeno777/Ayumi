@@ -118,7 +118,7 @@ class TestIsProductionStateDir:
         monkeypatch.chdir(tmp_path)
         # tmp_path IS under tmp — so this would actually NOT be production.
         # Use a separate non-tmp dir to simulate the bug.
-        non_tmp = Path("/home/TacoPants/projects/Ayumi/data/kill_switches")
+        non_tmp = Path("$AYUMI_ROOT/data/kill_switches")
         assert _is_production_state_dir(non_tmp) is True
 
     def test_explicit_temp_subdir_is_not_production(self):
@@ -148,7 +148,7 @@ class TestInitGuard:
         """
         # Anchor tmp_path under a non-tmp prefix so _is_production_state_dir
         # returns True. Use a path outside tmp/ that still exists locally.
-        production_path = Path("/home/TacoPants/projects/Ayumi/data/kill_switches")
+        production_path = Path("$AYUMI_ROOT/data/kill_switches")
         # Don't require the path to exist — the guard must catch this
         # BEFORE any filesystem operation, so a missing dir is fine.
         # If it doesn't exist on this machine, fall back to a symlink-free

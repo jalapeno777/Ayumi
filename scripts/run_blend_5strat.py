@@ -64,7 +64,7 @@ from strategies.london_breakout_retest import (
 from strategies.srmr_plus import SRMRPlusConfig, SRMRPlusStrategy
 
 # Use the real repo for data files (worktree may not have the DuckDB)
-_REPO_ROOT = Path("/home/TacoPants/projects/Ayumi")
+_REPO_ROOT = Path("$AYUMI_ROOT")
 DB_PATH = _REPO_ROOT / "data" / "ayumi_market.duckdb"
 CACHE_DIR = _REPO_ROOT / "data" / "cache"
 RISK = 50.0

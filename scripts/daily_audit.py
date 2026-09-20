@@ -154,7 +154,7 @@ def _ch_pid_file_alive() -> CheckResult:
             "System Health",
             "CRITICAL",
             f"PID file unreadable: {exc}",
-            auto_remediation="A2 — clear stale PID file (chown TacoPants first)",
+            auto_remediation="A2 — clear stale PID file (chown $USER first)",
         )
     alive = os.path.exists(f"/proc/{pid}")
     if alive:
@@ -1680,7 +1680,7 @@ def render_report(
     lines.append("## Appendix: Data Sources Queried")
     lines.append("")
     lines.append("- `data/forward_test.pid`, `data/heartbeat_trading.json` (SH-001, SH-002, DH-001)")
-    lines.append("- `df -h /home/TacoPants/projects/Ayumi/` (SH-004)")
+    lines.append("- `df -h $AYUMI_ROOT/` (SH-004)")
     lines.append("- `logs/forward_test.log` (SH-008)")
     lines.append("- `data/state/risk_guard_state.json` (FT-003, FT-004, FT-AUX-TARGET, DH-004)")
     lines.append("- `data/forward_test_health.json` (FT-009, DH-001, DH-002)")

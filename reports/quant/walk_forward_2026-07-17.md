@@ -1,7 +1,7 @@
 # Walk-Forward Haircut-Ratio Analysis (Proxy)
 
 **Date:** 2026-07-17
-**Data source:** `/home/TacoPants/projects/Ayumi/data/research/research.duckdb`
+**Data source:** `$AYUMI_ROOT/data/research/research.duckdb`
 **Method:** Proxy haircut from `metrics_summary.mean_sharpe` and `oos_sharpe_decay`
 
 ---

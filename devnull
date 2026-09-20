@@ -1,4 +1,4 @@
-Loading EURUSD data from /home/TacoPants/projects/Ayumi/data/forex/historical/EURUSD_H1.csv
+Loading EURUSD data from $AYUMI_ROOT/data/forex/historical/EURUSD_H1.csv
 Loaded 17877 bars: 2023-01-01 17:00:00 to 2025-12-31 16:00:00
 Strategy: keltner | Pair: EURUSD | Windows: 5
 Train ratio: 70% | Spread: 1.5 pips

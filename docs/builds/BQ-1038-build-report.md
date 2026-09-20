@@ -2,8 +2,8 @@
 
 **Date:** 2026-07-01  
 **Host:** xeon (Linux 6.8.0-111-generic, x64)  
-**Repo:** /home/TacoPants/projects/Ayumi  
-**Venv:** /home/TacoPants/projects/Ayumi/.venv (Python 3.12)  
+**Repo:** $AYUMI_ROOT  
+**Venv:** $AYUMI_ROOT/.venv (Python 3.12)  
 **Cores:** 8 logical CPUs
 
 ---
@@ -13,7 +13,7 @@
 Command:
 
 ```bash
-cd /home/TacoPants/projects/Ayumi
+cd $AYUMI_ROOT
 source .venv/bin/activate
 pip install "pytest-memray>=1.6"
 ```

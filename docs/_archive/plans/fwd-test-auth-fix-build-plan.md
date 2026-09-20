@@ -14,7 +14,7 @@ The forward test is **completely non-functional** with three interrelated issues
 
 1. **ALREADY_LOGGED_IN infinite loop** — `open_api_spot_feed.py:602` treats `ALREADY_LOGGED_IN` as an auth error, triggering `_refresh_token_and_reauth()`. The refresh succeeds, sends a new `ProtoOAAccountAuthReq`, but the server returns `ALREADY_LOGGED_IN` again immediately because the session is still active. No backoff, no circuit breaker, no deduplication. Log evidence: 25,864 occurrences on May 11.
 
-2. **Duplicate instances** — Two `launch_blend_forward_test.py` processes running simultaneously (PID 168828 as root, PID 168829 as TacoPants) sharing the same cTrader account. This is almost certainly **causing** the `ALREADY_LOGGED_IN` errors — both instances authenticate to the same account, and the server rejects the second as already logged in.
+2. **Duplicate instances** — Two `launch_blend_forward_test.py` processes running simultaneously (PID 168828 as root, PID 168829 as $USER) sharing the same cTrader account. This is almost certainly **causing** the `ALREADY_LOGGED_IN` errors — both instances authenticate to the same account, and the server rejects the second as already logged in.
 
 3. **Zero signals** — Even during brief connected windows, no signals are generated. Likely causes: tick flow interrupted by auth loop spam, or the duplicate instances' event loops interfering.
 
@@ -45,7 +45,7 @@ Duplicate instances (root cause)
 
 ### B1: Single-Instance Guard (PID File Lock) — 1 SP
 
-**Problem:** Nothing prevents two `launch_blend_forward_test.py` processes from running simultaneously. The root and TacoPants user can both launch it.
+**Problem:** Nothing prevents two `launch_blend_forward_test.py` processes from running simultaneously. The root and $USER user can both launch it.
 
 **Scope:** Add PID file locking to `launch_blend_forward_test.py` and `scripts/launch_forward_test.py`. On start, write PID to a well-known file (`data/forward_test.pid`). If file exists and process is alive, refuse to start with a clear message.
 
@@ -114,7 +114,7 @@ Duplicate instances (root cause)
 **Problem:** Two instances are currently running. Need to kill the orphan, deploy fixes, and restart cleanly.
 
 **Scope:**
-1. Kill PID 168829 (TacoPants orphan — root-owned PID 168828 should be the one that stays)
+1. Kill PID 168829 ($USER orphan — root-owned PID 168828 should be the one that stays)
 2. Actually: kill BOTH, deploy code, restart single instance
 3. Verify single process via `ps aux | grep launch_blend`
 4. Verify PID file created

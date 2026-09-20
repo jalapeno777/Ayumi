@@ -9,7 +9,7 @@
 | 1 | Pause forward test | 0.5 | done | `sudo systemctl stop ayumi-forward-test` |
 | 2 | Audit tracker | 0.5 | done | Linked 4 children + attached audit |
 | 3 | XAUUSD impossible prices | 2.0 | done | price-sanity guardrail in signal_adapter.py |
-| 4 | signal_stats chown | 0.5 | done | TacoPants:TacoPants 644 |
+| 4 | signal_stats chown | 0.5 | done | $USER:$USER 644 |
 | 5 | INSTRUMENTS dict | 1.0 | done | +AUDUSD/USDCHF/USDCAD, pip=10.0 |
 | 6 | Phantom positions | 2.0 | done | reconcile_with_broker() nuke+rebuild, startup+5min |
 | 7 | Drive backup check | 1.0 | done | 2-step recursion Drive-first |

@@ -1,13 +1,13 @@
 import os  # noqa: E401, I001
 import sys
 
-sys.path.insert(0, "/home/TacoPants/projects/Ayumi")
-sys.path.insert(0, "/home/TacoPants/projects/Ayumi/src/forex-bot")
-os.chdir("/home/TacoPants/projects/Ayumi")
+sys.path.insert(0, "$AYUMI_ROOT")
+sys.path.insert(0, "$AYUMI_ROOT/src/forex-bot")
+os.chdir("$AYUMI_ROOT")
 
 from dotenv import load_dotenv
 
-load_dotenv("/home/TacoPants/projects/Ayumi/.env")
+load_dotenv("$AYUMI_ROOT/.env")
 
 from adapters.ctrader.open_api_client import CTraderOpenApiClient
 

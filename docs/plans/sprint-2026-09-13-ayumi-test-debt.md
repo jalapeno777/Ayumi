@@ -97,7 +97,7 @@ byte-identical. The regression must be locked in by an automated test.
   - 70 passed, 4 skipped, 5 xfailed (pre-existing on main branch — 3
     ``test_kill_switch_auto.py::TestHeartbeatAtomicWrite`` failures are a
     pre-existing test-fixture ordering bug confirmed on
-    ``/home/TacoPants/projects/Ayumi`` main worktree without my changes;
+    ``$AYUMI_ROOT`` main worktree without my changes;
     unrelated to the harness isolation guard)
 
 ### Full-suite proof (Craig-authorized, CPUQuota=30%, outside gateway cgroup)
@@ -110,7 +110,7 @@ The ``--scope`` flag creates a transient cgroup separate from
 NOT impact the gateway even at full-suite fan-out.
 
 Byte-identical checksum: production
-``/home/TacoPants/projects/Ayumi/data/kill_switches/history.jsonl``
+``$AYUMI_ROOT/data/kill_switches/history.jsonl``
 checksum before the full run = checksum after the full run. Both
 recorded in ``workboard_proof`` artifact.
 

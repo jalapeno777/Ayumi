@@ -68,7 +68,7 @@ The Ayumi defects are live-trading safety issues. The ops defect is noise reduct
 | 1 | [OPS] Pause ayumi-forward-test before any code edits | 0 | 1 | urgent | main | IA-3: kill-switch cmd fix |
 | 2 | [DEBT] File trade-execution audit report onto workboard | 0 | 1 | low | main | — |
 | 3 | [INVESTIGATE] XAUUSD impossible entry prices (SRMR+ + session_range_mr) — root cause | 1 | 5 | urgent | tsukasa | DL-1, DL-5, DL-6, IA hypothesis shift |
-| 4 | [FIX] `signal_stats.jsonl` ownership (root:root → TacoPants) | 2 | 1 | high | tsukasa | DL-3, R5 preventive |
+| 4 | [FIX] `signal_stats.jsonl` ownership (root:root → $USER) | 2 | 1 | high | tsukasa | DL-3, R5 preventive |
 | 5 | [FIX] INSTRUMENTS dict — add AUDUSD/USDCAD/USDCHF | 2 | 1 | high | tsukasa | IA-2 pip values, IA-4 test path |
 | 6 | [FIX] SLPositionSizer `_open_positions` reconciliation (in-memory, not state file) | 2 | 3 | high | tsukasa | **IA-1 [HIGH] rebuild** |
 | 7 | [FIX] `ops_health_check.py:check_personality_backup` — Drive-aware | 3 | 3 | normal | main | IA-5 2-step query |
@@ -173,16 +173,16 @@ Skipping the quality gate = skipping Hard Rule 8. Do not mark done until both la
 
 ## Cross-References
 
-- Audit report: `/home/TacoPants/projects/Ayumi/audit/2026-07-09-trade-execution-investigation.md`
+- Audit report: `$AYUMI_ROOT/audit/2026-07-09-trade-execution-investigation.md`
 - Ops health-check source: `/root/.openclaw/workspace/scripts/ops_health_check.py:1338`
 - Personality backup script: `/root/.openclaw/workspace/scripts/personality_backup.py:414` (Drive upload), :423 (unlink)
 - Drive folder: `10zjW70L16PMxb0w6szGvrzLSLGdTJ0vl` (Personality Backups)
-- Kill switch state: `/home/TacoPants/projects/Ayumi/data/kill_switches/global.state` (current: `{}`)
-- Risk state file: `/home/TacoPants/projects/Ayumi/data/risk_state_blend.json` (Jun 30 — stale, Card 6 will nuke+rebuild)
-- Broker metadata (authoritative for pip values): `/home/TacoPants/projects/Ayumi/src/forex-bot/adapters/ctrader/models.py:198-204`
-- INSTRUMENTS dict target: `/home/TacoPants/projects/Ayumi/src/forex-bot/risk/sl_position_sizer.py:42-50`
-- SLPositionSizer state: `/home/TacoPants/projects/Ayumi/src/forex-bot/risk/sl_position_sizer.py:157, 367, 174-185, 284`
-- Test file: `/home/TacoPants/projects/Ayumi/tests/unit/risk/test_sl_position_sizer.py` (existing, 306 lines)
+- Kill switch state: `$AYUMI_ROOT/data/kill_switches/global.state` (current: `{}`)
+- Risk state file: `$AYUMI_ROOT/data/risk_state_blend.json` (Jun 30 — stale, Card 6 will nuke+rebuild)
+- Broker metadata (authoritative for pip values): `$AYUMI_ROOT/src/forex-bot/adapters/ctrader/models.py:198-204`
+- INSTRUMENTS dict target: `$AYUMI_ROOT/src/forex-bot/risk/sl_position_sizer.py:42-50`
+- SLPositionSizer state: `$AYUMI_ROOT/src/forex-bot/risk/sl_position_sizer.py:157, 367, 174-185, 284`
+- Test file: `$AYUMI_ROOT/tests/unit/risk/test_sl_position_sizer.py` (existing, 306 lines)
 - Council reviews:
   - Domain lead: `/root/.openclaw/council-workspace/data/reviews/2026-07-09-sprint-domain-lead-review.md`
   - Implementation auditor: `/root/.openclaw/council-workspace/data/reviews/2026-07-09-sprint-implementation-auditor-review.md`

@@ -55,7 +55,7 @@ After the preload fix, the engine has 99 H1 bars per symbol (well above the 50-b
 
 ## Bug #3: Duplicate Instances
 
-**Issue:** Multiple forward test instances run simultaneously (one as root, one as TacoPants user). They fight for the same cTrader connection and can interfere with each other.
+**Issue:** Multiple forward test instances run simultaneously (one as root, one as $USER user). They fight for the same cTrader connection and can interfere with each other.
 
 **Fix needed:** Single instance managed by systemd service. Script created during debug but not deployed — needs proper systemd setup.
 

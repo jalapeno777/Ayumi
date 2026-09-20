@@ -18,8 +18,8 @@ Output is small (a few hundred MB) and verifiable via the db_sha.
 
 Usage (on the worker after the Ayumi checkout is in place):
     python3 scripts/export_matrix_data_subset.py \
-        --source-db /home/TacoPants/projects/Ayumi/data/ayumi_market.duckdb \
-        --output-db /home/TacoPants/ayumi-data/matrix-2026-09-15.duckdb \
+        --source-db $AYUMI_ROOT/data/ayumi_market.duckdb \
+        --output-db /home/$USER/ayumi-data/matrix-2026-09-15.duckdb \
         --symbols XAUUSD,GBPUSD \
         --timeframes M15,H1
 

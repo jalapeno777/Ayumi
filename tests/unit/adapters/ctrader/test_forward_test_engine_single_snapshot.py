@@ -14,7 +14,7 @@ real cTrader connection. The test discipline is "verify the new logic
 exits through the new path" not "verify it talks to cTrader correctly".
 
 Run via:
-    bash /home/TacoPants/projects/Ayumi/scripts/run_test_scope.sh \\
+    bash $AYUMI_ROOT/scripts/run_test_scope.sh \\
         tests/unit/adapters/ctrader/test_forward_test_engine_single_snapshot.py -v
 
 (Card 7d3b535d — rework of f37e7b74 INSUFFICIENT verdict.)

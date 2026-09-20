@@ -1,12 +1,12 @@
 import os, sys, time, logging, json, threading  # noqa: E401, F401, I001
 
-sys.path.insert(0, "/home/TacoPants/projects/Ayumi")
-sys.path.insert(0, "/home/TacoPants/projects/Ayumi/src/forex-bot")
-os.chdir("/home/TacoPants/projects/Ayumi")
+sys.path.insert(0, "$AYUMI_ROOT")
+sys.path.insert(0, "$AYUMI_ROOT/src/forex-bot")
+os.chdir("$AYUMI_ROOT")
 
 from dotenv import load_dotenv  # noqa: I001
 
-load_dotenv("/home/TacoPants/projects/Ayumi/.env")
+load_dotenv("$AYUMI_ROOT/.env")
 
 from ctrader_open_api.client import Client  # noqa: I001
 from ctrader_open_api.endpoints import EndPoints

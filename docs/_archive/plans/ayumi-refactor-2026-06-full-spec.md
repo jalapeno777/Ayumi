@@ -514,7 +514,7 @@ Enforce development workflow rules that prevent regressions from builder agents.
 "$@"
 
 # 2. Fix file ownership
-find src/ tests/ -user root -exec chown TacoPants:TacoPants {} \; 2>/dev/null
+find src/ tests/ -user root -exec chown $USER:$USER {} \; 2>/dev/null
 
 # 3. Verify no .env modification
 if git diff --name-only .env | grep -q .env; then

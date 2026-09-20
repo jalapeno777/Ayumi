@@ -3,7 +3,7 @@
 **Card:** `98beb692-3177-461b-9963-5ab59c8b1032`
 **Author:** Riko (Platform/Framework Engineer)
 **Date:** 2026-07-25
-**Target repo:** `/home/TacoPants/projects/Ayumi`
+**Target repo:** `$AYUMI_ROOT`
 **Cron:** `b5a3e5fb-9763-4a1f-99ac-d01cce71ac94` ("SRF Weekly Deep Sweep", `0 4 * * 6` America/Toronto)
 
 ## TL;DR
@@ -23,7 +23,7 @@ Cron **kept active** — no removal needed.
 
 The card's stated symptoms:
 
-> - `research.duckdb` missing at `/home/TacoPants/projects/Ayumi/`
+> - `research.duckdb` missing at `$AYUMI_ROOT/`
 > - `srf.weekly_sweep` module not found on Python path
 
 **Both are stale:**
@@ -31,7 +31,7 @@ The card's stated symptoms:
 * `research.duckdb` lives at `data/research/research.duckdb` (relative to
   PROJECT_ROOT resolved by `weekly_sweep.py`), is 4.7 MB, and is actively
   being written to. The cron payload runs from
-  `/home/TacoPants/projects/Ayumi`, so the path is correct.
+  `$AYUMI_ROOT`, so the path is correct.
 * `srf.weekly_sweep` is importable when `PYTHONPATH=src/forex-bot` is set
   (or under `.venv/bin/python`, which the cron-issuing agentTurn LLM
   activates). The OpenClaw cron registers
@@ -87,9 +87,9 @@ design work — not an infra fix.
   Jul 12, 2026; last fix `40c6fbc` Jul 21, 2026).
 * `openclaw cron list --json` — confirmed cron `b5a3e5fb-9763-…` is
   registered, enabled, schedule `0 4 * * 6` America/Toronto, payload
-  `agentTurn` running `cd /home/TacoPants/projects/Ayumi && python3 -m srf.weekly_sweep --trials 50`.
+  `agentTurn` running `cd $AYUMI_ROOT && python3 -m srf.weekly_sweep --trials 50`.
 * `cron_jobs_cache.json`, `cron/jobs.json`, system cron
-  (`/var/spool/cron/crontabs/{root,TacoPants}`, `/etc/cron.d/`,
+  (`/var/spool/cron/crontabs/{root,$USER}`, `/etc/cron.d/`,
   `systemctl --user list-timers`) — none of these reference `srf.weekly_sweep`
   directly. The cron lives in OpenClaw's cron registry.
 * `data/research/research.duckdb` — confirmed DB exists and `cron_runs`
@@ -148,7 +148,7 @@ alerting treat the cron as healthy — and the SRF pipeline's actual work
 The new stub was executed against the real `research.duckdb`:
 
 ```text
-$ cd /home/TacoPants/projects/Ayumi
+$ cd $AYUMI_ROOT
 $ PYTHONPATH=src/forex-bot .venv/bin/python -m srf.weekly_sweep --trials 50
 INFO  Weekly sweep (stub) started: pairs=[…] timeframes=[…] trials_per_combo=50
 INFO  Found 17 production strategies in registry

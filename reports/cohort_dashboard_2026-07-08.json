@@ -1,6 +1,6 @@
 {
   "generated_at": "2026-07-09T00:30:06.842018+00:00",
-  "reports_dir": "/home/TacoPants/projects/Ayumi/reports/srmr-plus-pipeline-2026-07-08",
+  "reports_dir": "$AYUMI_ROOT/reports/srmr-plus-pipeline-2026-07-08",
   "source_reports": [
     "EURUSD_focused_results.jsonl",
     "GBPUSD_focused_results.jsonl",

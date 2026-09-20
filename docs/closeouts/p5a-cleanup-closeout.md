@@ -53,7 +53,7 @@ order-path coverage, and prepare a merge-ready cleanup branch.
 ### Sprint-Close Targeted Suite
 
 ```bash
-/home/TacoPants/projects/Ayumi/.venv/bin/python3 -m pytest \
+$AYUMI_ROOT/.venv/bin/python3 -m pytest \
   tests/adapters/ctrader/test_execution_permission.py \
   tests/adapters/ctrader/test_p5a_characterization.py \
   tests/adapters/ctrader/test_p5a_integration.py \

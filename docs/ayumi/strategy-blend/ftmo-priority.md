@@ -4,7 +4,7 @@
 **Generated:** 2026-07-07 (heartbeat cycle)
 **Source research:** SRB-AYUMI-005 (Satoshi, Tier 1, 2026-07-01)
 **Card:** 4a8120fe — `[AYUMI] Prioritize mean-reversion strategies with 1:1-1:1.5 R:R for FTMO challenge phase`
-**Workspace:** `/home/TacoPants/projects/Ayumi` (branch `autodev/ayumi-regime-ftmo-audit`)
+**Workspace:** `$AYUMI_ROOT` (branch `autodev/ayumi-regime-ftmo-audit`)
 **sp_estimate:** 1.0
 
 ---

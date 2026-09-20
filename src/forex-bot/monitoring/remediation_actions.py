@@ -141,12 +141,12 @@ def _name_for_gid(gid: int) -> str:
 def _resolve_runtime_identity(project_root: Path) -> tuple[int, int, str, str]:
     """Return the uid/gid Hayate should restore runtime files to.
 
-    The production service runs as TacoPants:TacoPants.  The environment knobs
+    The production service runs as $USER:$USER.  The environment knobs
     exist for tests and emergency service renames; if the named account is not
     present, we fall back to the project root owner rather than guessing root.
     """
 
-    user_name = os.environ.get("AYUMI_RUNTIME_USER", "TacoPants")
+    user_name = os.environ.get("AYUMI_RUNTIME_USER", "$USER")
     group_name = os.environ.get("AYUMI_RUNTIME_GROUP", user_name)
     try:
         uid = pwd.getpwnam(user_name).pw_uid

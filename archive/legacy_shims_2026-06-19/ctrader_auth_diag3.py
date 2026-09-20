@@ -3,13 +3,13 @@ import sys
 import threading
 import time
 
-sys.path.insert(0, "/home/TacoPants/projects/Ayumi")
-sys.path.insert(0, "/home/TacoPants/projects/Ayumi/src/forex-bot")
-os.chdir("/home/TacoPants/projects/Ayumi")
+sys.path.insert(0, "$AYUMI_ROOT")
+sys.path.insert(0, "$AYUMI_ROOT/src/forex-bot")
+os.chdir("$AYUMI_ROOT")
 
 from dotenv import load_dotenv
 
-load_dotenv("/home/TacoPants/projects/Ayumi/.env")
+load_dotenv("$AYUMI_ROOT/.env")
 
 from adapters.ctrader.reactor_manager import ReactorManager
 from ctrader_open_api.client import Client

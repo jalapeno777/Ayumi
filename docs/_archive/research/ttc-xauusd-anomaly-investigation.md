@@ -2,7 +2,7 @@
 
 **Card:** AYU-DEBT-TTC-ANOMALY  
 **Generated:** automated investigation script  
-**Repo:** `/home/TacoPants/projects/Ayumi`
+**Repo:** `$AYUMI_ROOT`
 
 ## Context
 

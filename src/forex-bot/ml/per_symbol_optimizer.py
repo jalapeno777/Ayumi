@@ -5,7 +5,7 @@ across multiple config variants, trains per-pair ConfidenceLearner models,
 and determines the optimal configuration per symbol.
 
 Usage:
-    cd /home/TacoPants/projects/Ayumi/src/forex-bot && python3 -m ml.per_symbol_optimizer
+    cd $AYUMI_ROOT/src/forex-bot && python3 -m ml.per_symbol_optimizer
 """
 
 from __future__ import annotations

@@ -156,8 +156,8 @@ new symbols is a one-line change to `_BASE_CCY` / `_QUOTE_CCY`.
 Run with:
 
 ```bash
-PATH=/home/TacoPants/projects/Ayumi/.venv/bin:$PATH \
-    python3 -m pytest /home/TacoPants/projects/Ayumi/tests/unit/data/test_carry_signals.py -q
+PATH=$AYUMI_ROOT/.venv/bin:$PATH \
+    python3 -m pytest $AYUMI_ROOT/tests/unit/data/test_carry_signals.py -q
 # → 29 passed in ~0.7s
 ```
 

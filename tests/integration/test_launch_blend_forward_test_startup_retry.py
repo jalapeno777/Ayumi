@@ -31,7 +31,7 @@ import pytest
 # ``<repo>/data/`` tree.  Static checks remain identical against the
 # canonical source; the import-based runtime tests load the tmp-path
 # copy via importlib so module-import side effects stay isolated.
-_LAUNCHER_SOURCE = Path("/home/TacoPants/projects/Ayumi") / "scripts" / "launch_blend_forward_test.py"
+_LAUNCHER_SOURCE = Path("$AYUMI_ROOT") / "scripts" / "launch_blend_forward_test.py"
 
 
 @pytest.fixture

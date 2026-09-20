@@ -23,7 +23,7 @@ from pathlib import Path
 import numpy as np
 
 # ── Paths ────────────────────────────────────────────────────────────────────
-ROOT = Path("/home/TacoPants/projects/Ayumi")
+ROOT = Path("$AYUMI_ROOT")
 sys.path.insert(0, str(ROOT / "src" / "forex-bot"))
 
 import backtest.strategies.tts_strategy as tts_mod  # noqa: E402

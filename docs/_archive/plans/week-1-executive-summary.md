@@ -134,14 +134,14 @@ All post-MVP features are built (referral program, subscription pages, leaderboa
 - [Growth Plan AYUAA-509](/AYUAA/issues/AYUAA-509#document-plan)
 
 ### Content Materials
-- [Referral Launch Announcement](/home/TacoPants/projects/Ayumi/worktrees/nash/docs/media/referral-program-launch-announcement.md)
-- [Telegram Content Calendar](/home/TacoPants/projects/Ayumi/worktrees/nash/docs/media/week-1-telegram-content-calendar.md)
-- [Email Onboarding Sequence](/home/TacoPants/projects/Ayumi/worktrees/nash/docs/media/email-onboarding-sequence.md)
+- [Referral Launch Announcement]($AYUMI_ROOT/worktrees/nash/docs/media/referral-program-launch-announcement.md)
+- [Telegram Content Calendar]($AYUMI_ROOT/worktrees/nash/docs/media/week-1-telegram-content-calendar.md)
+- [Email Onboarding Sequence]($AYUMI_ROOT/worktrees/nash/docs/media/email-onboarding-sequence.md)
 
 ### Technical Documentation
-- [Referral Program Guide](/home/TacoPants/projects/Ayumi/worktrees/nash/docs/referral-program-implementation-guide.md)
-- [Telegram Setup Guide](/home/TacoPants/projects/Ayumi/worktrees/nash/docs/media/telegram-broadcast-channel-setup.md)
-- [Discord Growth Plan](/home/TacoPants/projects/Ayumi/worktrees/nash/docs/media/discord-community-growth-plan-first-100-members.md)
+- [Referral Program Guide]($AYUMI_ROOT/worktrees/nash/docs/referral-program-implementation-guide.md)
+- [Telegram Setup Guide]($AYUMI_ROOT/worktrees/nash/docs/media/telegram-broadcast-channel-setup.md)
+- [Discord Growth Plan]($AYUMI_ROOT/worktrees/nash/docs/media/discord-community-growth-plan-first-100-members.md)
 
 ### Community Resources
 - Discord: https://discord.gg/piggybankacademy

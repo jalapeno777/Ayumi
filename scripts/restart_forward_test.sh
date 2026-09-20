@@ -10,7 +10,7 @@
 
 set -euo pipefail
 
-PROJECT_DIR="/home/TacoPants/projects/Ayumi"
+PROJECT_DIR="$AYUMI_ROOT"
 PYTHON="${PROJECT_DIR}/.venv/bin/python"
 PID_FILE="${PROJECT_DIR}/data/forward_test.pid"
 HEARTBEAT_FILE="${PROJECT_DIR}/data/heartbeat_trading.json"

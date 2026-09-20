@@ -3,9 +3,9 @@
 **Status:** Phase 1 shipped. Blend forward test restarted on merged main with D5 risk envelope. This supersedes the 2026-09-07 handoff.
 
 ## Live process (verified 16:43 UTC / 12:43 EDT)
-- systemd unit `ayumi-forward-test.service`, ACTIVE, user TacoPants
+- systemd unit `ayumi-forward-test.service`, ACTIVE, user $USER
 - Exec: `.venv/bin/python scripts/launch_blend_forward_test.py --symbols XAUUSD --only "SRMR+" --live`
-- Broker: authenticated (account 46877902), spot feed connected, ticks flowing (~2.7 tps)
+- Broker: authenticated (account REDACTED_CTRADER_ACCOUNT), spot feed connected, ticks flowing (~2.7 tps)
 - Balance **$10,262.45** (+2.62% lifetime); FTMO peak reconciled **$10,415.81**; account DD from peak ≈1.47%
 - 0 open positions; sizer/broker in sync; eval_errors=0
 - FTMOGuard active: dd_reduce 8%, dd_freeze 9%, daily_loss 3%, kill_switch wired

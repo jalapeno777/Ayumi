@@ -18,7 +18,7 @@ Ayumi uses a **branch-based workflow** with git worktrees. Every agent has their
 ### 1. Start a Feature
 
 ```bash
-cd /home/TacoPants/projects/Ayumi/worktrees/<your-worktree>/
+cd $AYUMI_ROOT/worktrees/<your-worktree>/
 git fetch origin
 git checkout -b <agent>/<feature-name> main
 ```
@@ -62,7 +62,7 @@ Only after review approval:
 
 ```bash
 # From the main worktree
-cd /home/TacoPants/projects/Ayumi/
+cd $AYUMI_ROOT/
 git fetch origin
 git merge <agent>/<feature-name>
 git push origin main

@@ -1,7 +1,7 @@
 # cTrader OpenAPI Connection — 2026-06-11 (Updated 2026-06-12)
 
 ## Summary
-Fixed multiple bugs blocking cTrader live trading. Spot feed now authenticates successfully. Trade client needs a different OpenAPI app registration for account 46877902.
+Fixed multiple bugs blocking cTrader live trading. Spot feed now authenticates successfully. Trade client needs a different OpenAPI app registration for account REDACTED_CTRADER_ACCOUNT.
 
 ## Tokens
 Craig provided fresh tokens on 2026-06-11 at 14:37 EDT:
@@ -43,7 +43,7 @@ Standalone test confirms app + account auth both succeed with the new tokens:
 ```
 ✓ App auth OK (payloadType=2101)
 ✓ Account auth OK (payloadType=2103)
-Accounts available: 46877859, 46877902
+Accounts available: REDACTED_CTRADER_ACCOUNT_2, REDACTED_CTRADER_ACCOUNT
 ```
 
 ## Outstanding Issue: Trade Client
@@ -57,7 +57,7 @@ Hypothesis: cTrader OpenAPI has a single-session rule for the same (app_id, acco
 
 **Action needed from Craig:**
 1. Check cTrader OpenAPI admin panel for app `18449_9Os5TE9eq...`
-2. Verify account `46877902` is in the app's authorized accounts list
+2. Verify account `REDACTED_CTRADER_ACCOUNT` is in the app's authorized accounts list
 3. If using a single app for both spot feed and trade client is not allowed, may need a second app registration
 
 ## Files Modified

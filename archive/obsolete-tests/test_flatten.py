@@ -6,7 +6,7 @@ import time
 
 from dotenv import load_dotenv
 
-load_dotenv("/home/TacoPants/projects/Ayumi/.env")
+load_dotenv("$AYUMI_ROOT/.env")
 
 SOH = "\x01"
 

@@ -28,7 +28,7 @@ Dukascopy JForex SDK (Docker) → CSV files → import_ticks.py → DuckDB (tick
 ### Single symbol, single day (smoke test)
 
 ```bash
-cd /home/TacoPants/projects/Ayumi/tools/dukascopy-harvester
+cd $AYUMI_ROOT/tools/dukascopy-harvester
 
 docker run --rm \
   --env-file .env \
@@ -47,7 +47,7 @@ docker run --rm \
 ### Production harvest (one symbol at a time, full range)
 
 ```bash
-cd /home/TacoPants/projects/Ayumi/tools/dukascopy-harvester
+cd $AYUMI_ROOT/tools/dukascopy-harvester
 
 docker run --rm \
   --env-file .env \
@@ -66,7 +66,7 @@ docker run --rm \
 ### Using the runner script (with retry + circuit breaker)
 
 ```bash
-cd /home/TacoPants/projects/Ayumi/tools/dukascopy-harvester
+cd $AYUMI_ROOT/tools/dukascopy-harvester
 nohup bash run_harvest.sh &
 ```
 
@@ -102,7 +102,7 @@ Fallback files (when ticks unavailable) use `_M1.csv` suffix with OHLCV columns.
 ## Step 2: Import CSVs to DuckDB
 
 ```bash
-cd /home/TacoPants/projects/Ayumi
+cd $AYUMI_ROOT
 source .venv/bin/activate
 
 python3 scripts/import_ticks.py \

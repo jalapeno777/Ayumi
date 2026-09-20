@@ -66,7 +66,7 @@ Hayate is a heartbeat-driven monitoring agent at `/root/.openclaw/ayumi-overseer
 
 ### 2.3 Hard boundaries (from Hayate AGENTS.md) that constrain this design
 
-- **NEVER** touch anything outside `/home/TacoPants/projects/Ayumi/` and own workspace
+- **NEVER** touch anything outside `$AYUMI_ROOT/` and own workspace
 - **NEVER** modify system-level config (systemd, firewall, packages) without Ava approval
 - **NEVER** push to `main` directly (Phase 1: branch only)
 - **NEVER** pip install or modify shared venv
@@ -99,7 +99,7 @@ Every checkpoint maps to one of these action classes. The class determines what 
 | Class | Action | Examples | Authority |
 |---|---|---|---|
 | **A1 — Service control** | Restart forward test service; toggle systemd if installed | FT-001, FT-002 | Hayate (with circuit-breaker + repair-attempt caps from kill_switches.json) |
-| **A2 — File hygiene** | Touch flag files, clear stale PIDs, fix ownership (chown to TacoPants), rotate logs | SH-002, SH-003, SH-005, KH-005 | Hayate (no escalation) |
+| **A2 — File hygiene** | Touch flag files, clear stale PIDs, fix ownership (chown to $USER), rotate logs | SH-002, SH-003, SH-005, KH-005 | Hayate (no escalation) |
 | **A3 — Card lifecycle** | Create cards, comment on cards, archive done cards >72h | KH-001..KH-007 | Hayate (per workboard rules + max-5 cap) |
 | **A4 — Notification** | Emit alert to overseer-outbox.jsonl; ping Ava | All `critical` thresholds | Hayate (auto) |
 | **A5 — FTMO guard action** | Activate global freeze, fire per-strategy freeze, close positions | FT-006, FT-007, FT-008, FT-009 | **NEVER auto** — only Ava (with Craig approval) |
@@ -117,7 +117,7 @@ Every checkpoint maps to one of these action classes. The class determines what 
 | **SH-001** | Forward test process status | PID exists; matches `data/forward_test.pid`; `ps aux` shows it | `ps -p $(cat data/forward_test.pid)`, `data/heartbeat_trading.json.engine_running` | running | n/a (binary) | down | A1 — restart via `scripts/restart_forward_test.sh` (counts toward 3-attempt cap and 10-restart/day cap) | A4 — if 3 repair attempts fail: emit `priority: high` to overseer-outbox.jsonl → A3 — card for Tsukasa | real-time (heartbeat 30 min market / 2 hr off-hours) |
 | **SH-002** | Tick flow | `ticks_received` increasing in `data/heartbeat_trading.json` over 5-min window | `data/heartbeat_trading.json`, `scripts/health_check_tick_pipeline.py` | > 1 tps 5min avg | 0.1-1 tps 5min avg | 0 tps for 5+ min during market hours | A1 — restart if 0 ticks >5min (counts toward 3-attempt cap). Note: NOT a restart-storm; the 5min threshold prevents that | A4 — alert if restart fails or ticks still 0 after restart | real-time (heartbeat) |
 | **SH-003** | Log rotation | `logs/*.log` files older than 7 days; `data/forward_test.log` size >500MB | `find logs/ -name "*.log" -mtime +7`, `du -sh data/forward_test.log` | 0 files >7d, log <500MB | 1-10 files >7d OR 500MB-2GB | >10 files >7d OR >2GB | A2 — gzip+archive oldest 10 files to `logs/archive/YYYY-MM-DD/` | A3 — card if archive fails | daily (audit cron) |
-| **SH-004** | Disk usage | `/home/TacoPants/projects/Ayumi/` partition | `df -h /home/TacoPants/projects/Ayumi/` | <70% | 70-85% | >85% | A2 — clear tmp files, rotate logs, vacuum old reports | A4 — alert Ava at >85%; A3 — card for storage investigation at >90% | daily (audit cron) + heartbeat spot-check |
+| **SH-004** | Disk usage | `$AYUMI_ROOT/` partition | `df -h $AYUMI_ROOT/` | <70% | 70-85% | >85% | A2 — clear tmp files, rotate logs, vacuum old reports | A4 — alert Ava at >85%; A3 — card for storage investigation at >90% | daily (audit cron) + heartbeat spot-check |
 | **SH-005** | Stale PID files | `*.pid` files in `data/` not matching a running process | `find data/ -name "*.pid" -mtime +1` + `ps -p $(cat data/*.pid)` | 0 stale | 1-2 stale | >2 stale or any `data/forward_test.pid` with dead process | A2 — delete stale `*.pid` files; ensure `data/forward_test.pid` reflects reality | A4 — if `forward_test.pid` references dead process: treat as FT-001 down, restart | daily (audit cron) |
 | **SH-006** | Zombie / orphan processes | `ps aux | grep ayumi | grep -v grep` showing Z state, or PPID=1 ayumi processes not under systemd | `ps aux | grep -E "ayumi|launch_blend"` | 0 zombies, 0 orphans | 1-2 | >2 zombies OR >5 orphans | A2 — kill orphan PIDs >1h old (graceful SIGTERM, then SIGKILL after 30s) | A4 — alert Ava if >5 orphans; A3 — card for process-tree investigation | daily (audit cron) |
 | **SH-007** | Memory and CPU of forward test | RSS in MB; CPU % over 5min | `ps -p $(cat data/forward_test.pid) -o %mem,rss,pcpu` | <1.5GB RSS, <50% CPU | 1.5-2.0GB, 50-80% | >2.0GB OR >80% sustained 5min | A1 — graceful restart (OOM-class risk documented in crash-history §4, May-24-2026 event) | A4 — alert; A3 — card for memory-leak investigation if recurring | real-time (heartbeat) |
@@ -191,7 +191,7 @@ All KH checkpoints query the OpenClaw workboard. Hayate uses `workboard_list` (p
 - **Cron entry** (added to /root crontab, alongside the existing /root/.openclaw/workspace crons):
   ```cron
   # Hayate Daily Audit (between 1-4pm EDT = 17:00-20:00 UTC; run at 18:00 UTC = 2pm EDT)
-  0 18 * * * cd /home/TacoPants/projects/Ayumi && /home/TacoPants/projects/Ayumi/.venv/bin/python /root/.openclaw/ayumi-overseer-workspace/scripts/hayate_daily_audit.py >> /tmp/hayate-daily-audit.log 2>&1
+  0 18 * * * cd $AYUMI_ROOT && $AYUMI_ROOT/.venv/bin/python /root/.openclaw/ayumi-overseer-workspace/scripts/hayate_daily_audit.py >> /tmp/hayate-daily-audit.log 2>&1
   ```
 - **Random jitter:** Add 0-15 min random delay (implemented inside the script via `time.sleep(random.randint(0, 900))`) so a daily flurry of cron jobs doesn't fire all at 18:00:00 sharp.
 - **Timezone:** Server is UTC (canonical per Ava directive 2026-07-03, see `overseer_state.json.clock_note`). 18:00 UTC = 2:00 PM EDT = inside the 1-4pm EDT window.
@@ -230,7 +230,7 @@ The script uses only the stdlib + existing Ayumi venv (no new dependencies). Tot
 
 ### 4.3 Report structure
 
-Output: `/home/TacoPants/projects/Ayumi/reports/hayate-daily-audit/YYYY-MM-DD.md`
+Output: `$AYUMI_ROOT/reports/hayate-daily-audit/YYYY-MM-DD.md`
 
 ```markdown
 # Hayate Daily Audit — 2026-07-08
@@ -313,7 +313,7 @@ Status legend: ✅ GREEN, ⚠️ YELLOW (warning), 🛑 RED (critical), ⏸️ S
 - workboard_list (paginated, default board, agent=any)
 - workboard_stats
 - ps -p $(cat data/forward_test.pid) (process check)
-- df -h /home/TacoPants/projects/Ayumi/
+- df -h $AYUMI_ROOT/
 - date (server clock check)
 
 ---
@@ -327,7 +327,7 @@ The 5 auto-remediation action classes from §3.2, with the explicit concrete act
 | Class | Concrete actions | Counts toward | Reversible? |
 |---|---|---|---|
 | **A1 — Service control** | (1) Run `scripts/restart_forward_test.sh` to restart forward test; (2) if systemd unit is installed (Phase 2+), use `systemctl --user restart ayumi-forward-test.service` | 3-attempt cap (per issue), 10-restart/day cap | Yes (next restart; A1 idempotent) |
-| **A2 — File hygiene** | (1) Recreate missing `data/ayumi/remediation_validated.flag` (with audit-trail log line — see precedent ovs-20260708); (2) gzip+archive `logs/forward_test.log` to `logs/archive/YYYY-MM-DD/`; (3) clear stale `data/*.pid` files where `ps -p` shows no process; (4) `chown -R TacoPants:TacoPants data/` if ownership drifted to root; (5) clear `data/.tmp/` if size >100MB | per-file idempotency window (5 min) | Yes (recreate, re-chown) |
+| **A2 — File hygiene** | (1) Recreate missing `data/ayumi/remediation_validated.flag` (with audit-trail log line — see precedent ovs-20260708); (2) gzip+archive `logs/forward_test.log` to `logs/archive/YYYY-MM-DD/`; (3) clear stale `data/*.pid` files where `ps -p` shows no process; (4) `chown -R $USER:$USER data/` if ownership drifted to root; (5) clear `data/.tmp/` if size >100MB | per-file idempotency window (5 min) | Yes (recreate, re-chown) |
 | **A3 — Card lifecycle** | (1) Create card via `workboard_create`; (2) comment on existing card via `workboard_comment`; (3) auto-archive done cards >72h via `workboard_list status=done` + manual `archived=true` flag (or new tool if available); (4) move stale cards from `todo`→`backlog` if `>14d no activity` (defer to A3 escalation) | 5-open-card cap (Hayate) | Yes (un-archive) |
 | **A4 — Notification** | (1) Append to `data/overseer-outbox.jsonl`; (2) append to `data/lifecycle_log.jsonl`; (3) append to `data/decision_log.jsonl`; (4) NO direct Craig contact (per AGENTS.md hard rule) | none (notifications are free) | n/a (log only) |
 | **A7 — Strategy lifecycle** | NOT AUTO. Always A3 → Ava → Craig. Examples: enable/disable a strategy in `StrategyRegistry`, change signal thresholds, modify Kelly parameters. | n/a | n/a |

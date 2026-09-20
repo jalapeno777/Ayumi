@@ -1,6 +1,6 @@
 {
   "generated_at": "2026-08-05T09:31:28.576884+00:00",
-  "duckdb_path": "/home/TacoPants/projects/Ayumi/data/ayumi_market.duckdb",
+  "duckdb_path": "$AYUMI_ROOT/data/ayumi_market.duckdb",
   "mtf_mode": "hard",
   "detector_config": {
     "adx_period": 14,

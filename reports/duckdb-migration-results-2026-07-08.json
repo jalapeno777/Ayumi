@@ -1,5 +1,5 @@
 {
-  "database": "/home/TacoPants/projects/Ayumi/data/ayumi_market.duckdb",
+  "database": "$AYUMI_ROOT/data/ayumi_market.duckdb",
   "db_size_mb": 165.8,
   "bar_csvs_imported": 36,
   "total_rows": 1528829,

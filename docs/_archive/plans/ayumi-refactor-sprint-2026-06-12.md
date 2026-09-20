@@ -84,7 +84,7 @@ Modularize the forward test pipeline so subsystems can be developed, tested, and
 - `.env` token values emptied (migrated)
 - Access token: XStv1y_J... (expires: check Sunday, may need refresh)
 - Refresh token: BpyZp5xT...
-- Account ID: 46877902
+- Account ID: REDACTED_CTRADER_ACCOUNT
 
 ---
 

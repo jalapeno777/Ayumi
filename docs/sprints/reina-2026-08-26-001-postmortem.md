@@ -4,7 +4,7 @@
 **Title:** [BUG] Forward test 2 startup FAILURE exits in 90s window — systemd auto-recovery masked root cause
 **Branch:** `autodev/forward-test-startup-retry-237f5427`
 **Commit:** `0820a700`
-**Worktree:** `/home/TacoPants/projects/Ayumi/worktrees/forward-test-startup-retry-237f5427`
+**Worktree:** `$AYUMI_ROOT/worktrees/forward-test-startup-retry-237f5427`
 **Date:** 2026-08-26 11:52 EDT → 16:00 EDT (~4h)
 **Author:** Reina (Sprint Orchestrator)
 
@@ -159,7 +159,7 @@ All 82 tests in the launcher-adjacent test set pass (`tests/integration/test_lau
 
 **Proposal to Ava:**
 1. Confirm whether any current doc actually claims "no systemd unit" — if so, identify which file.
-2. If confirmed, the corrected statement is: "Ayumi forward test runs under `systemd` unit `ayumi-forward-test.service` (Restart=always, RestartSec=30, StartLimitBurst=10/600s). Working directory `/home/TacoPants/projects/Ayumi`, exec `python scripts/launch_blend_forward_test.py --symbols XAUUSD --only 'SRMR+' --live`."
+2. If confirmed, the corrected statement is: "Ayumi forward test runs under `systemd` unit `ayumi-forward-test.service` (Restart=always, RestartSec=30, StartLimitBurst=10/600s). Working directory `$AYUMI_ROOT`, exec `python scripts/launch_blend_forward_test.py --symbols XAUUSD --only 'SRMR+' --live`."
 3. Add this to Ayumi AGENTS.md so future agents investigating forward-test health check `journalctl -u ayumi-forward-test` first, not process listings.
 
 ---
@@ -180,7 +180,7 @@ data/build-checklists/237f5427-d388-4fcd-90ff-a77ba0897fc5.json | (new, BQES pre
 build_checklist: data/build-checklists/237f5427-d388-4fcd-90ff-a77ba0897fc5.json (PASS, 6 edge cases, 5 assertions, 3 API checks, 5 source files read)
 branch: autodev/forward-test-startup-retry-237f5427
 commit: 0820a700
-worktree: /home/TacoPants/projects/Ayumi/worktrees/forward-test-startup-retry-237f5427
+worktree: $AYUMI_ROOT/worktrees/forward-test-startup-retry-237f5427
 base_commit: 5f14a8f4
 files_changed: 2 (1 modified, 1 new)
 lines_added: 304

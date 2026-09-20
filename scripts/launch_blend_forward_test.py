@@ -32,16 +32,16 @@ sys.path.insert(0, str(PROJECT_ROOT / "src" / "forex-bot"))
 def _refuse_root():
     """Refuse to run the trading service as root.
 
-    Ayumi must run as TacoPants to avoid file-ownership conflicts on
+    Ayumi must run as $USER to avoid file-ownership conflicts on
     .env, PID files, lock files and runtime state.  This guard exits
     *before* any broker connection or credential read so that a
     mistaken root launch cannot create state that a subsequent
-    TacoPants launch cannot clean up.
+    $USER launch cannot clean up.
     """
     if os.geteuid() == 0:
         sys.exit(
             "FATAL: Refusing to run Ayumi forward test as root.\n"
-            "Use 'systemctl start ayumi-forward-test.service' or run as TacoPants user.\n"
+            "Use 'systemctl start ayumi-forward-test.service' or run as $USER user.\n"
             "This guard prevents permission conflicts and credential ownership issues."
         )
 
@@ -2545,8 +2545,8 @@ def main():
                     "Could not remove foreign-owned %s: %s — run 'sudo chown %s:%s %s' to fix manually",
                     _log_f,
                     _log_fix_err,
-                    os.getenv("USER", "TacoPants"),
-                    os.getenv("USER", "TacoPants"),
+                    os.getenv("USER", "$USER"),
+                    os.getenv("USER", "$USER"),
                     _log_f,
                 )
 

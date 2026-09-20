@@ -9,7 +9,7 @@
 ## Context (What We Built Last)
 
 ### Session History (Jul 10-11, 2026)
-1. **Jul 10 evening** — Set up JForex SDK 3.6.51 harvester in Docker at `/home/TacoPants/projects/Ayumi/tools/dukascopy-harvester/`
+1. **Jul 10 evening** — Set up JForex SDK 3.6.51 harvester in Docker at `$AYUMI_ROOT/tools/dukascopy-harvester/`
    - Demo creds: `DEMO2JNDma` / `JNDma` (in `.env`)
    - Cloudflare 404 fixed with `-Dhttp.agent=Java Web Start/17.0` JVM flag
    - Rate bumped to 4 req/s per Craig's call
@@ -45,7 +45,7 @@
 | USDJPY   | 7         | Jun 3-9, 2024 (test batch only)  | Partial (test)   |
 | XAUUSD   | 0         | Nothing yet                      | No               |
 
-**DuckDB:** `/home/TacoPants/projects/Ayumi/data/ayumi_market.duckdb` — 10.9 GB
+**DuckDB:** `$AYUMI_ROOT/data/ayumi_market.duckdb` — 10.9 GB
 
 ---
 
@@ -66,7 +66,7 @@ tick-vault settings:
   fetch_max_retry_attempts: 5
   fetch_base_retry_delay: 2.0
   fetch_timeout: 30.0
-  base_directory: /home/TacoPants/projects/Ayumi/data/tick-vault
+  base_directory: $AYUMI_ROOT/data/tick-vault
 ```
 
 ### Execution Steps
@@ -79,14 +79,14 @@ tick-vault settings:
 
 2. **Run harvest** (one symbol at a time):
    ```python
-   source /home/TacoPants/projects/Ayumi/.venv/bin/activate
+   source $AYUMI_ROOT/.venv/bin/activate
    python3 << 'EOF'
    import asyncio
    from datetime import datetime, UTC
    from tick_vault import download_range, reload_config
 
    reload_config(
-       base_directory="/home/TacoPants/projects/Ayumi/data/tick-vault",
+       base_directory="$AYUMI_ROOT/data/tick-vault",
        worker_per_proxy=4,
        fetch_max_retry_attempts=5,
        fetch_base_retry_delay=2.0,
@@ -129,11 +129,11 @@ tick-vault uses SQLite-backed metadata. If the harvest is interrupted, re-runnin
 
 | What | Path |
 |------|------|
-| tick-vault install | Ayumi venv (`/home/TacoPants/projects/Ayumi/.venv`) |
-| JForex SDK harvester (old) | `/home/TacoPants/projects/Ayumi/tools/dukascopy-harvester/` |
-| DuckDB database | `/home/TacoPants/projects/Ayumi/data/ayumi_market.duckdb` |
-| Existing CSV output (SDK) | `/home/TacoPants/projects/Ayumi/tools/dukascopy-harvester/output/` |
-| tick-vault output (new) | `/home/TacoPants/projects/Ayumi/data/tick-vault/` (to be created) |
+| tick-vault install | Ayumi venv (`$AYUMI_ROOT/.venv`) |
+| JForex SDK harvester (old) | `$AYUMI_ROOT/tools/dukascopy-harvester/` |
+| DuckDB database | `$AYUMI_ROOT/data/ayumi_market.duckdb` |
+| Existing CSV output (SDK) | `$AYUMI_ROOT/tools/dukascopy-harvester/output/` |
+| tick-vault output (new) | `$AYUMI_ROOT/data/tick-vault/` (to be created) |
 | Research: bi5 approaches | `docs/research/bi5-datafeed-research-2026-07-11.md` |
 | Research: API investigation | `docs/research/dukascopy-api-investigation-2026-07-08.md` |
 | Security audit | `docs/research/tick-vault-security-audit-2026-07-11.md` |

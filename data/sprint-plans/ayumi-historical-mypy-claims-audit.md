@@ -3,7 +3,7 @@
 **Card:** c40bd9e3-b433-4717-837a-6691a5444ecb (sprint reina-2026-08-19-122)
 **Researcher:** Satsuki (subagent, depth 1)
 **Date:** 2026-08-19
-**Repo:** /home/TacoPants/projects/Ayumi
+**Repo:** $AYUMI_ROOT
 **Scope:** Audit pre-2026-08-14 mypy success claims on Ayumi; classify vacuous vs real; flag live-trading-adjacent merges for senior review.
 
 ## Executive Summary
@@ -25,7 +25,7 @@ Supporting physical evidence on disk: `src/forex-bot/.mypy_cache/3.12/cache.db` 
 
 ## Method
 
-1. Sampled pre-2026-08-14 mypy success claims from: (a) `git log --all --before='2026-08-14' --grep=mypy` on the Ayumi repo, (b) grep over `/home/TacoPants/projects/Ayumi/docs/` for `mypy`/`MyPy`, (c) SQL query of workboard comments (14 hits in `workboard_card_comments` body, 19 hits in `workboard_cards` title/notes). Note: most workboard hits are post-2026-08-14 (e.g., e1ba054c, bf8ef527, 78904868, 70a53daa) and reflect the discovery/post-discovery remediation work rather than pre-discovery claims.
+1. Sampled pre-2026-08-14 mypy success claims from: (a) `git log --all --before='2026-08-14' --grep=mypy` on the Ayumi repo, (b) grep over `$AYUMI_ROOT/docs/` for `mypy`/`MyPy`, (c) SQL query of workboard comments (14 hits in `workboard_card_comments` body, 19 hits in `workboard_cards` title/notes). Note: most workboard hits are post-2026-08-14 (e.g., e1ba054c, bf8ef527, 78904868, 70a53daa) and reflect the discovery/post-discovery remediation work rather than pre-discovery claims.
 2. For each claim, determined how mypy was invoked: (a) config-driven bare `mypy` run → VACUOUS, (b) explicit file/dir args → REAL, (c) no invocation evidence → UNKNOWN.
 3. Cross-referenced: VACUOUS claims span 2026-04-05 (mypy.ini creation) through 2026-08-14 (discovery day). Listed all live-trading-adjacent merges (`src/forex-bot/adapters/ctrader/`, `src/forex-bot/risk/`, `src/forex-bot/engine/`, `src/forex-bot/forward_test/`, `src/forex-bot/adapters/ctrader/forward_test_engine.py`) that landed in the same windows as vacuous claims.
 4. Verified root fact via `git show 2e27caa:mypy.ini` and `git show 2f0206d:mypy.ini` — both show `mypy_path = src/forex-bot` as the original (pre-discovery) state. Current main has `mypy_path = src` (per `git show 25897b8:mypy.ini`), changed 2026-08-19 in the SEV-3 history restore.

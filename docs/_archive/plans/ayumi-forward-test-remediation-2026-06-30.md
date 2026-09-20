@@ -1,8 +1,8 @@
 # Ayumi Forward Test Remediation Plan — 2026-06-30
 
 **Prepared by:** Planner subagent  
-**Repo:** `/home/TacoPants/projects/Ayumi/`  
-**Output:** `/home/TacoPants/projects/Ayumi/docs/plans/ayumi-forward-test-remediation-2026-06-30.md`  
+**Repo:** `$AYUMI_ROOT/`  
+**Output:** `$AYUMI_ROOT/docs/plans/ayumi-forward-test-remediation-2026-06-30.md`  
 **Run window:** 2026-06-30 00:07 → 08:29 EDT (sigterm)  
 **Pipeline route:** Planner → Council → Craig → Builder → Validate
 

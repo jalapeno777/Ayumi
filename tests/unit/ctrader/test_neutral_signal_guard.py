@@ -42,7 +42,7 @@ import pytest
 
 # ── Path setup ─────────────────────────────────────────────────────────
 #
-# The repo root (``/home/TacoPants/projects/Ayumi``) contains a top-level
+# The repo root (``$AYUMI_ROOT``) contains a top-level
 # ``backtest/`` package that only exposes bootstrap/sweep scripts. The real
 # ``backtest`` package (with ``backtest.engine``, ``backtest.amalgamation``,
 # etc.) lives at ``src/forex-bot/backtest/``. When pytest sets the cwd as

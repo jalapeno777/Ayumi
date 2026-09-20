@@ -4,7 +4,7 @@
 **Generated:** 2026-07-07 (heartbeat cycle)
 **Source research:** SRB-AYUMI-007 (Satoshi, Tier 2, 2026-07-01)
 **Card:** f9c0e025 — `[AYUMI] Verify "all no_signal" symptom via regime classification per SRB-AYUMI-007`
-**Workspace:** `/home/TacoPants/projects/Ayumi` (branch `autodev/ayumi-regime-ftmo-audit`)
+**Workspace:** `$AYUMI_ROOT` (branch `autodev/ayumi-regime-ftmo-audit`)
 **sp_estimate:** 2.0
 
 ---

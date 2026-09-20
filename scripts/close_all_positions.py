@@ -11,7 +11,7 @@ import os
 import sys
 from pathlib import Path
 
-ROOT = Path("/home/TacoPants/projects/Ayumi")
+ROOT = Path("$AYUMI_ROOT")
 SRC = ROOT / "src" / "forex-bot"
 sys.path.insert(0, str(SRC))
 os.chdir(str(ROOT))

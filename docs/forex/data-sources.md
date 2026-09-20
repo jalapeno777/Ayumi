@@ -178,7 +178,7 @@ audit and the implications for live-vs-backtest divergence.
   network is mocked). Run with:
 
   ```bash
-  cd /home/TacoPants/projects/Ayumi
+  cd $AYUMI_ROOT
   python3 -m pytest tests/unit/data/test_dukascopy_importer.py -v
   ```
 

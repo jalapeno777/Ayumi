@@ -194,7 +194,7 @@ python3 /root/.openclaw/workspace/scripts/builder_quality_gate.py \
 
 ```bash
 # Targeted suite for the offload module (HR5 — never run the full repo suite):
-cd /home/TacoPants/projects/Ayumi
+cd $AYUMI_ROOT
 python3 -m pytest tests/offload/ -v -p no:randomly
 
 # Optional live-wire test (gated on env var; requires paired ava-worker-local):
@@ -213,7 +213,7 @@ The card AC #2 deliverable is a live 2-cell smoke on `ava-worker-local` with
 **Step 1 — gateway-side push** (uses `OpenClawNodeBundleTransport.push_bundle`):
 
 ```bash
-cd /home/TacoPants/projects/Ayumi
+cd $AYUMI_ROOT
 python3 scripts/offload/live_smoke.py --run-id c3134271-smoke-1 \
     --fixture scripts/offload/smoke_fixture.py
 ```
@@ -322,7 +322,7 @@ Validates the runner's trust-boundary semantics against four fault classes
 Run via:
 
 ```bash
-cd /home/TacoPants/projects/Ayumi
+cd $AYUMI_ROOT
 python3 -m pytest tests/offload/test_fault_injection.py -v
 ```
 

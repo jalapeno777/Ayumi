@@ -73,7 +73,7 @@ while REPO_ROOT != REPO_ROOT.parent:
 # the script was copied to a bare scripts directory without a sibling
 # Ayumi checkout.
 if REPO_ROOT == REPO_ROOT.parent:
-    fallback = Path("/home/TacoPants/projects/Ayumi")
+    fallback = Path("$AYUMI_ROOT")
     if (fallback / "src" / "forex-bot").exists():
         REPO_ROOT = fallback
 DEFAULT_DB = REPO_ROOT / "data" / "research" / "research.duckdb"

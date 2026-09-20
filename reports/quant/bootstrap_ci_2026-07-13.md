@@ -1,7 +1,7 @@
 # Bootstrap Confidence Intervals — 2026-07-13
 
 **Source:** metrics_summary JOIN runs (per-run aggregates; per-window fallback when windows table is non-empty)
-**Database:** `/home/TacoPants/projects/Ayumi/data/research/research.duckdb`
+**Database:** `$AYUMI_ROOT/data/research/research.duckdb`
 **Iterations:** 10,000 (seed=42)
 **Confidence level:** 95% (percentile method)
 **Kill threshold:** lower PF CI < 1.0

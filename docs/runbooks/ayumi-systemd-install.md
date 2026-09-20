@@ -3,7 +3,7 @@
 **Sprint:** ayumi-reliability-2026-07-05
 **Card:** `9043c09c` Task 5.2
 **Unit:** `ayumi-forward-test.service`
-**User:** `TacoPants` (systemd *user* instance, NOT root)
+**User:** `$USER` (systemd *user* instance, NOT root)
 **Service type:** `simple` — wraps `scripts/launch_blend_forward_test.py --live`
 
 ---
@@ -24,9 +24,9 @@ memory leaks, which require code-side work.
 
 | Path | Owner | Notes |
 |---|---|---|
-| `~/.config/systemd/user/ayumi-forward-test.service` | `TacoPants:TacoPants`, mode `0644` | The unit file. Lives in the **user's** systemd config dir, NOT `/etc/systemd/system/`. |
+| `~/.config/systemd/user/ayumi-forward-test.service` | `$USER:$USER`, mode `0644` | The unit file. Lives in the **user's** systemd config dir, NOT `/etc/systemd/system/`. |
 | Logs | `journalctl --user -u ayumi-forward-test.service` | Unit uses `StandardOutput=journal` / `StandardError=journal`. Do NOT also append to `logs/*.log` — that doubles writes and creates clock skew between sources. |
-| PID lock | `/home/TacoPants/projects/Ayumi/data/forward_test.pid` | Held by the launcher (B1 single-instance guard), NOT by systemd. systemd tracks the Main PID only. |
+| PID lock | `$AYUMI_ROOT/data/forward_test.pid` | Held by the launcher (B1 single-instance guard), NOT by systemd. systemd tracks the Main PID only. |
 
 ---
 
@@ -34,7 +34,7 @@ memory leaks, which require code-side work.
 
 Before installing or re-installing:
 
-1. **Confirm user is TacoPants.** Running as root is forbidden — the launcher's
+1. **Confirm user is $USER.** Running as root is forbidden — the launcher's
    `_refuse_root()` guard exits *before* any credential read to avoid leaving
    root-owned state behind. Verify with `whoami`.
 2. **Verify no stray root-owned state files in `data/`** — particularly
@@ -43,10 +43,10 @@ Before installing or re-installing:
    a graceful warning but the RiskGuard will reset to defaults. From a clean
    session, the safe pattern is:
    ```bash
-   sudo chown -R TacoPants:TacoPants /home/TacoPants/projects/Ayumi/data
+   sudo chown -R $USER:$USER $AYUMI_ROOT/data
    ```
    Run this once after any prior root test runs.
-3. **Verify the venv exists** at `/home/TacoPants/projects/Ayumi/.venv/`.
+3. **Verify the venv exists** at `$AYUMI_ROOT/.venv/`.
    The `ExecStart` path is hard-coded to that venv — if it's missing, the
    unit will fail with `code=exited, status=203/EXEC` (no such file).
 4. **Verify cTrader credentials are populated in `.env`** —
@@ -62,7 +62,7 @@ Before installing or re-installing:
 
 The unit lives at `~/.config/systemd/user/ayumi-forward-test.service` — the
 **user's** systemd directory, not `/etc/systemd/system/`. This means the
-service runs as `TacoPants` (uid 1000) and uses the user's D-Bus session
+service runs as `$USER` (uid 1000) and uses the user's D-Bus session
 (`XDG_RUNTIME_DIR=/run/user/1000/bus`).
 
 ```bash
@@ -79,8 +79,8 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-WorkingDirectory=/home/TacoPants/projects/Ayumi
-ExecStart=/home/TacoPants/projects/Ayumi/.venv/bin/python scripts/launch_blend_forward_test.py --live
+WorkingDirectory=$AYUMI_ROOT
+ExecStart=$AYUMI_ROOT/.venv/bin/python scripts/launch_blend_forward_test.py --live
 Restart=on-failure
 RestartSec=30
 StartLimitBurst=5
@@ -99,7 +99,7 @@ StandardError=journal
 WantedBy=default.target
 EOF
 
-# 3. Ensure ownership and perms (TacoPants-owned, world-readable)
+# 3. Ensure ownership and perms ($USER-owned, world-readable)
 chmod 644 ~/.config/systemd/user/ayumi-forward-test.service
 
 # 4. Reload the user systemd daemon
@@ -112,7 +112,7 @@ systemctl --user enable ayumi-forward-test.service
 systemctl --user start ayumi-forward-test.service
 ```
 
-> **Note on "lingering":** without `loginctl enable-linger TacoPants`, the
+> **Note on "lingering":** without `loginctl enable-linger $USER`, the
 > user systemd instance dies when the user logs out and the service stops.
 > For a true "boots on machine startup and keeps running" deployment, enable
 > lingering and promote the unit to system-level — but that requires the unit
@@ -135,7 +135,7 @@ systemctl --user status ayumi-forward-test.service
 pgrep -af launch_blend_forward_test
 
 # Journal: should show the launch sequence with NO error lines
-sudo loginctl enable-linger TacoPants   # only if you want boot-time start; not required
+sudo loginctl enable-linger $USER   # only if you want boot-time start; not required
 journalctl --user -u ayumi-forward-test.service --since "1 min ago"
 ```
 
@@ -204,8 +204,8 @@ systemctl --user disable ayumi-forward-test.service     # do not auto-start next
 These are written by the launcher itself, independent of systemd:
 
 ```bash
-tail -f /home/TacoPants/projects/Ayumi/data/forward_test_health.json
-tail -f /home/TacoPants/projects/Ayumi/logs/equity_$(date +%Y-%m-%d).json
+tail -f $AYUMI_ROOT/data/forward_test_health.json
+tail -f $AYUMI_ROOT/logs/equity_$(date +%Y-%m-%d).json
 ```
 
 ---
@@ -262,7 +262,7 @@ of the reliability sprint should track them.
 |---|---|---|
 | 1 | Application-side memory leak — `MemoryMax=512M` bounds the *consequence* but doesn't fix the *cause*. | New card: "Forward-test memory profile under load." |
 | 2 | 19-day log gap (May 21 → Jun 9) is a systemic logging problem, not a systemd unit issue. | New card: "Logrotate config for `logs/ayumi_*.log` and `forward_test-*.log`." |
-| 3 | Pre-existing root-owned state files (e.g., `data/state/risk_guard_state.json` with mode `0600`) prevent the user-owned service from reading them. | Operator pre-flight: `sudo chown -R TacoPants:TacoPants /home/TacoPants/projects/Ayumi/data`. See §3. |
+| 3 | Pre-existing root-owned state files (e.g., `data/state/risk_guard_state.json` with mode `0600`) prevent the user-owned service from reading them. | Operator pre-flight: `sudo chown -R $USER:$USER $AYUMI_ROOT/data`. See §3. |
 | 4 | ConnectionWatchdog vs systemd Watchdog overlap — not a bug today, but a future `sd_notify` integration needs a careful design pass. | New card: "Forward-test `sd_notify` integration + systemd WatchdogSec=600." |
 | 5 | Single-connection architecture depends on `ab8e4c5` (connection extraction). If that refactor regresses, the dual-connection death-spiral returns. | Covered by existing `17e72b0` resilience xfail tests. |
 
@@ -275,7 +275,7 @@ The install procedure was executed on **2026-07-05** during sprint
 
 ```
 ● ayumi-forward-test.service - Ayumi Forward Test (live multi-strategy paper trading)
-     Loaded: loaded (/home/TacoPants/.config/systemd/user/ayumi-forward-test.service; enabled; preset: enabled)
+     Loaded: loaded (/home/$USER/.config/systemd/user/ayumi-forward-test.service; enabled; preset: enabled)
      Active: active (running) since Sun 2026-07-05 16:57:12 UTC; 39s ago
    Main PID: 567359 (python)
       Tasks: 21 (limit: 38368)
@@ -285,11 +285,11 @@ The install procedure was executed on **2026-07-05** during sprint
 
 ```
 Jul 05 16:57:12 systemd: Started ayumi-forward-test.service.
-Jul 05 16:57:14 ayumi.ctrader.environment:    [Environment] mode=demo endpoint=demo.ctraderapi.com account=46877902
+Jul 05 16:57:14 ayumi.ctrader.environment:    [Environment] mode=demo endpoint=demo.ctraderapi.com account=REDACTED_CTRADER_ACCOUNT
 Jul 05 16:57:14 ayumi.connection_state:       [spot_feed] State transition: disconnected → connecting
 Jul 05 16:57:14 ayumi.ctrader_connection:     Connected to demo.ctraderapi.com:5035
 Jul 05 16:57:16 ayumi.connection_state:       [spot_feed] State transition: acct_authenticating → authenticated
-Jul 05 16:57:20 ayumi.openapi_spot_feed:      OpenApiSpotFeed started: account=46877902 symbols=3
+Jul 05 16:57:20 ayumi.openapi_spot_feed:      OpenApiSpotFeed started: account=REDACTED_CTRADER_ACCOUNT symbols=3
 Jul 05 16:57:23 ayumi.forward_test:           Preloaded 200 bars for USDJPY 60m
 Jul 05 16:57:26 ayumi.forward_test:           Bar preloading complete
 Jul 05 16:57:27 ayumi.forward_test:           Preflight: seeded 0 open cTrader positions totaling $0.00 risk
@@ -316,8 +316,8 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-WorkingDirectory=/home/TacoPants/projects/Ayumi
-ExecStart=/home/TacoPants/projects/Ayumi/.venv/bin/python scripts/launch_blend_forward_test.py --live
+WorkingDirectory=$AYUMI_ROOT
+ExecStart=$AYUMI_ROOT/.venv/bin/python scripts/launch_blend_forward_test.py --live
 Restart=on-failure
 RestartSec=30
 StartLimitBurst=5

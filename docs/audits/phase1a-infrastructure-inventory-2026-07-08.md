@@ -660,7 +660,7 @@ The plan's "edge-weighted risk allocator" would need a per-(strategy, symbol) ri
 
 ## 9. Verification Commands
 
-To re-verify any of the above findings, run these read-only commands from `/home/TacoPants/projects/Ayumi`:
+To re-verify any of the above findings, run these read-only commands from `$AYUMI_ROOT`:
 
 ```bash
 # Resource caps wired into scripts?

@@ -25,10 +25,10 @@ The forward test was working at 14:09 with real tokens. By 18:18 the tokens were
 
 ## Root Causes (Ranked by Impact)
 
-### 1. Builders Run as Root, Production Runs as TacoPants
-Every autobuild subagent runs as root. Every file it creates or modifies becomes root-owned. The production forward test service runs as TacoPants and can't read its own config files.
+### 1. Builders Run as Root, Production Runs as $USER
+Every autobuild subagent runs as root. Every file it creates or modifies becomes root-owned. The production forward test service runs as $USER and can't read its own config files.
 
-**Fix:** Builders must `chown TacoPants:TacoPants` after any file write, or run as TacoPants.
+**Fix:** Builders must `chown $USER:$USER` after any file write, or run as $USER.
 
 ### 2. Tests Write to Production State
 `RiskGuard._trigger_circuit_breaker()` creates a `KillSwitchManager()` with the default path (`data/kill_switches/`). When tests trigger the circuit breaker, they write to the same `global.state` file the production forward test reads on startup.
@@ -75,7 +75,7 @@ Each individual fix is correct. The problem is that each fix exists in isolation
 |---------|---------------|------------|
 | No pre-commit integration test | Commits landed that broke the forward test | Add a `scripts/smoke_test.sh` that runs before merge |
 | Builders modify production files | `.env` clobbered by token manager builder | Builders forbidden from touching `.env`, `data/`, `logs/` |
-| File ownership drift | Root-owned files break TacoPants service | `chown` as part of every builder write, or run builders as TacoPants |
+| File ownership drift | Root-owned files break $USER service | `chown` as part of every builder write, or run builders as $USER |
 | Kill switch state leak | Tests write to production state file | Dependency injection + test-specific state dirs |
 | No token persistence boundary | Tokens stored in `.env` alongside config | Separate credentials file, gitignored, never touched by builders |
 
@@ -87,7 +87,7 @@ Each individual fix is correct. The problem is that each fix exists in isolation
 2. **Credentials boundary** — Tokens in `data/.credentials` (gitignored), never in `.env`
 3. **Builder sandbox rules** — Builders cannot write to `.env`, `data/`, or `logs/`
 4. **Smoke test** — `scripts/smoke_test.sh` that validates: imports, config load, mock auth, no plaintext creds
-5. **File ownership guard** — Post-build `chown` or builder runs as TacoPants
+5. **File ownership guard** — Post-build `chown` or builder runs as $USER
 6. **Kill switch DI** — Complete the dependency injection fix so tests never touch production state
 
 ---

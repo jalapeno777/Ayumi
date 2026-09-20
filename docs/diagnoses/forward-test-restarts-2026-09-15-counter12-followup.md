@@ -25,7 +25,7 @@ The 21:26:47Z increment is the **14th clean cycle** since the Sep 11 anomaly bur
 
 - The service ran ~23h 30m continuously before exiting cleanly (PID 2017001 ran from `2026-09-14 21:56:34Z` to `2026-09-15 21:26:47Z` — uptime 23h 30m 13s).
 - Clean exit pattern matches the proactive-24h rotation cadence documented in card `7d3b535d` (engine exits cleanly at uptime ≥ 23h 30m; the periodic health loop surfaces the rotation marker via `[Rotation] Engine exited cleanly at uptime=…`).
-- No foreign-UID guard failure (`data/signal_stats.jsonl` is correctly owned by `TacoPants:uid 1000`, mtime `2026-09-15 00:18`).
+- No foreign-UID guard failure (`data/signal_stats.jsonl` is correctly owned by `$USER:uid 1000`, mtime `2026-09-15 00:18`).
 - No PID-guard contention (`ExecStopPost` removes `data/forward_test.pid` on stop, line 21 of the unit file).
 - No engine-start failure (`Result=success`, no `[Engine start raised …]` in the post-restart logs).
 - No exceptional short cycle (23h 30m is the expected long-cycle length — the two short cycles in the earlier doc, R10 1h 20m and R12 43m, were both attributed to manual maintenance windows).
@@ -89,7 +89,7 @@ If the new schema fields break any heartbeat/outbox consumer, revert only the bo
 | `scripts/launch_blend_forward_test.py:2731` | KeyboardInterrupt fallback inside the periodic health loop |
 | `scripts/launch_blend_forward_test.py` new code (lines added by this card) | restart_reason/restart_counter/last_restart_at fields + overseer mirror |
 | `journalctl -u ayumi-forward-test.service` (referenced via the 2026-09-15 doc) | 21:26:47Z restart transition matched the proactive-24h pattern |
-| `data/signal_stats.jsonl` (mtime 2026-09-15 00:18, owner TacoPants:uid 1000) | Foreign-UID guard cause ruled out |
+| `data/signal_stats.jsonl` (mtime 2026-09-15 00:18, owner $USER:uid 1000) | Foreign-UID guard cause ruled out |
 | `systemctl list-timers --all` | No ayumi-targeted timer; cross-reference for AC3 |
 
 — end —

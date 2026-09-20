@@ -347,7 +347,7 @@ def run_sweep(trades: list[TradeRecord], pair: str) -> list[SweepResult]:
 
 
 def main():
-    project_root = os.environ.get("AYUMI_ROOT", "/home/TacoPants/projects/Ayumi")
+    project_root = os.environ.get("AYUMI_ROOT", "$AYUMI_ROOT")
     data_dir = os.path.join(project_root, "data", "forex", "historical")
 
     # Try real trade data first

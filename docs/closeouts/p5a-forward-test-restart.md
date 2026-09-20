@@ -15,13 +15,13 @@ Time: 13:36-13:39 EDT
 
 The first service start failed with PermissionError on `data/kill_switches/global.state`:
 ```
-File "/home/TacoPants/projects/Ayumi/src/forex-bot/adapters/ctrader/kill_switch.py", line 343, in _load_state
+File "$AYUMI_ROOT/src/forex-bot/adapters/ctrader/kill_switch.py", line 343, in _load_state
     raw = self._state_file.read_text()
 PermissionError: [Errno 13] Permission denied: 'data/kill_switches/global.state'
 ```
 
-Root cause: file was owned by root:root with mode 600. Service runs as TacoPants.
-Fix: `sudo chown TacoPants:TacoPants data/kill_switches/global.state`
+Root cause: file was owned by root:root with mode 600. Service runs as $USER.
+Fix: `sudo chown $USER:$USER data/kill_switches/global.state`
 
 ## Service Start
 
@@ -38,7 +38,7 @@ sudo systemctl start ayumi-forward-test.service
 4. Connected to demo.ctraderapi.com:5035
 5. State transitions: disconnected → connecting → connected → app_authenticating → acct_authenticating → authenticated
 6. **Kill switch AUTO-DEACTIVATED on successful auth** — reason=auto_cleared_on_successful_auth
-7. OpenApiSpotFeed started: account=46877902 symbols=2
+7. OpenApiSpotFeed started: account=REDACTED_CTRADER_ACCOUNT symbols=2
 8. Preloaded 199 bars for all 4 timeframe/symbol combinations
 9. Forward test started: mode=LIVE, eval_interval=1.0s, bar_period=60m
 

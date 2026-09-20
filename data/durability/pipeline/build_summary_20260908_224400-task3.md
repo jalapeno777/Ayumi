@@ -6,7 +6,7 @@
 - Builder: Tsubaki
 - Branch base: `94e24d59` (main; card 1 + card 2 still in Rin review, unmerged)
 - New branch: `tsubaki/dd204eb7-snapshot-pool`
-- Worktree: `/home/TacoPants/projects/Ayumi/.worktrees/tsubaki-dd204eb7-snapshot-pool`
+- Worktree: `$AYUMI_ROOT/.worktrees/tsubaki-dd204eb7-snapshot-pool`
 - Allowed files: `scripts/pregnancy/snapshot_pool.py` (only, new)
 - Created: 2026-09-08 22:44 EDT
 

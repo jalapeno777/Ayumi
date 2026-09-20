@@ -1,6 +1,6 @@
 # Multiple Testing Correction — 2026-07-13
 
-**Source:** SRF DuckDB: /home/TacoPants/projects/Ayumi/data/research/research.duckdb
+**Source:** SRF DuckDB: $AYUMI_ROOT/data/research/research.duckdb
 **Trials analyzed:** 43
 **Alpha (per-test):** 0.05
 **BH-FDR target (q):** 0.1

@@ -85,7 +85,7 @@ namespace ICTSMC
 
             if (!Directory.Exists(dataDir))
             {
-                dataDir = "/home/TacoPants/projects/Ayumi/worktrees/kai/data/forex/historical";
+                dataDir = "$AYUMI_ROOT/worktrees/kai/data/forex/historical";
             }
 
             var pairs = new[] { "EURUSD", "GBPUSD" };
@@ -176,7 +176,7 @@ namespace ICTSMC
 
             if (!Directory.Exists(dataDir))
             {
-                dataDir = "/home/TacoPants/projects/Ayumi/worktrees/kai/data/forex/historical";
+                dataDir = "$AYUMI_ROOT/worktrees/kai/data/forex/historical";
             }
 
             var pairs = new[] { "EURUSD", "GBPUSD" };

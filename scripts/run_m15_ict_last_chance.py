@@ -22,7 +22,7 @@ M15 tuning rationale (vs H1 defaults):
   min_bars_before:      100 (was 30)  — sufficient warm-up
 
 Run:
-  cd /home/TacoPants/projects/Ayumi/worktrees/kai/src/forex-bot
+  cd $AYUMI_ROOT/worktrees/kai/src/forex-bot
   python ../../scripts/run_m15_ict_last_chance.py
 """
 

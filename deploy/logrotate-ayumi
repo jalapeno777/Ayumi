@@ -1,11 +1,11 @@
-/home/TacoPants/projects/Ayumi/logs/*.log {
+$AYUMI_ROOT/logs/*.log {
     daily
     rotate 30
     compress
     delaycompress
     missingok
     notifempty
-    create 0644 TacoPants TacoPants
+    create 0644 $USER $USER
     dateext
     dateformat -%Y%m%d
 }

@@ -8,7 +8,7 @@ Pipeline:
 5. Compare results.
 
 Usage:
-    cd /home/TacoPants/projects/Ayumi/src/forex-bot && python3 -m ml.backtest_with_ml
+    cd $AYUMI_ROOT/src/forex-bot && python3 -m ml.backtest_with_ml
 """
 
 from __future__ import annotations

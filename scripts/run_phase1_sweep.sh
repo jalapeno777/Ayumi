@@ -3,7 +3,7 @@
 # Usage: bash scripts/run_phase1_sweep.sh
 set -euo pipefail
 
-cd /home/TacoPants/projects/Ayumi
+cd $AYUMI_ROOT
 source .venv/bin/activate
 export PYTHONPATH=src/forex-bot
 

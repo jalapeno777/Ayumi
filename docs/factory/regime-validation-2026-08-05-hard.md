@@ -1,7 +1,7 @@
 # Strategy Factory Phase 0 — Regime Detector Validation
 
 **Generated:** 2026-08-05T09:31:28.576884+00:00
-**DuckDB:** `/home/TacoPants/projects/Ayumi/data/ayumi_market.duckdb`
+**DuckDB:** `$AYUMI_ROOT/data/ayumi_market.duckdb`
 **MTF mode:** `hard`
 **Detector config:** adx_period=14, atr_period=14, atr_lookback=50, trending_adx=25.0, choppy_adx=20.0, volatile_atr_pct=0.8, quiet_atr_pct=0.2, mtf_confirmation=hard, h1_adx_threshold=22.0, h4_adx_threshold=20.0
 **Warm-up bars skipped:** 64 (ADX needs 29, ATR percentile needs 64)

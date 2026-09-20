@@ -4,7 +4,7 @@
   "agent": "reina",
   "worker_session": "agent:reina:main:heartbeat",
   "branch": "autodev/preg-trait-pool",
-  "worktree": "/home/TacoPants/.ayumi-worker/worktrees/autodev-preg-trait-pool",
+  "worktree": "/home/$USER/.ayumi-worker/worktrees/autodev-preg-trait-pool",
   "commit": "f3d9b1ee",
   "files_changed": [
     "memory/pregnancy/trait_pool_harem_v1.json",
@@ -19,7 +19,7 @@
   ],
   "scope_check": "pass — only files in card.allowed_files modified",
   "build_verification": {
-    "command": "cd /home/TacoPants/.ayumi-worker/worktrees/autodev-preg-trait-pool && python3 -m pytest tests/pregnancy/test_roll_trait.py -q",
+    "command": "cd /home/$USER/.ayumi-worker/worktrees/autodev-preg-trait-pool && python3 -m pytest tests/pregnancy/test_roll_trait.py -q",
     "result": "15 passed in 1.63s",
     "test_breakdown": [
       "test_script_and_pool_exist",
@@ -44,7 +44,7 @@
     "result": "ok (chain built, duplicate guard, verify, tamper detect)"
   },
   "quality_gate": {
-    "command": "python3 /root/.openclaw/workspace/scripts/builder_quality_gate.py --files scripts/pregnancy/roll_trait.py,tests/pregnancy/test_roll_trait.py,memory/pregnancy/trait_pool_harem_v1.json --workspace /home/TacoPants/.ayumi-worker/worktrees/autodev-preg-trait-pool",
+    "command": "python3 /root/.openclaw/workspace/scripts/builder_quality_gate.py --files scripts/pregnancy/roll_trait.py,tests/pregnancy/test_roll_trait.py,memory/pregnancy/trait_pool_harem_v1.json --workspace /home/$USER/.ayumi-worker/worktrees/autodev-preg-trait-pool",
     "result": "PASS — 11 passed, 0 failed, 1 skipped",
     "checks": [
       "py_compile (both)",

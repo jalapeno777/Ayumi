@@ -49,7 +49,7 @@ TokenLifecycle._refresh_disabled = False  (DEFAULT — refresh enabled)
 
 ```bash
 # Check current token expiry
-grep CTRADER_OPENAPI_TOKEN_EXPIRES_AT /home/TacoPants/projects/Ayumi/.env
+grep CTRADER_OPENAPI_TOKEN_EXPIRES_AT $AYUMI_ROOT/.env
 
 # Check service logs for refresh activity
 journalctl -u ayumi-forward-test --since "1 hour ago" | grep -i "token\|refresh"
@@ -83,7 +83,7 @@ or OAuth returns HTTP 400 (invalid grant).
 ### Step 1: Generate new tokens via OAuth flow
 
 ```bash
-cd /home/TacoPants/projects/Ayumi
+cd $AYUMI_ROOT
 # Open the cTrader OAuth URL in a browser:
 # https://openapi.ctrader.com/apps/auth?client_id=<CLIENT_ID>&redirect_uri=http://localhost:8080/callback&scope=trade&grant_type=authorization_code
 # After consent, capture the authorization code from the redirect URL.
@@ -104,12 +104,12 @@ curl -X POST https://openapi.ctrader.com/apps/token \
 
 ```bash
 # Backup current .env
-cp /home/TacoPants/projects/Ayumi/.env /home/TacoPants/projects/Ayumi/.env.backup.$(date +%Y%m%d%H%M%S)
+cp $AYUMI_ROOT/.env $AYUMI_ROOT/.env.backup.$(date +%Y%m%d%H%M%S)
 
 # Update token lines
-sed -i "s|^CTRADER_OPENAPI_ACCESS_TOKEN=.*|CTRADER_OPENAPI_ACCESS_TOKEN=<NEW_ACCESS_TOKEN>|" /home/TacoPants/projects/Ayumi/.env
-sed -i "s|^CTRADER_OPENAPI_REFRESH_TOKEN=.*|CTRADER_OPENAPI_REFRESH_TOKEN=<NEW_REFRESH_TOKEN>|" /home/TacoPants/projects/Ayumi/.env
-sed -i "s|^CTRADER_OPENAPI_TOKEN_EXPIRES_AT=.*|CTRADER_OPENAPI_TOKEN_EXPIRES_AT=$(date -u -d '+30 days' +%Y-%m-%dT%H:%M:%S+00:00)|" /home/TacoPants/projects/Ayumi/.env
+sed -i "s|^CTRADER_OPENAPI_ACCESS_TOKEN=.*|CTRADER_OPENAPI_ACCESS_TOKEN=<NEW_ACCESS_TOKEN>|" $AYUMI_ROOT/.env
+sed -i "s|^CTRADER_OPENAPI_REFRESH_TOKEN=.*|CTRADER_OPENAPI_REFRESH_TOKEN=<NEW_REFRESH_TOKEN>|" $AYUMI_ROOT/.env
+sed -i "s|^CTRADER_OPENAPI_TOKEN_EXPIRES_AT=.*|CTRADER_OPENAPI_TOKEN_EXPIRES_AT=$(date -u -d '+30 days' +%Y-%m-%dT%H:%M:%S+00:00)|" $AYUMI_ROOT/.env
 ```
 
 ### Step 4: Restart the service
@@ -129,7 +129,7 @@ systemctl is-active ayumi-forward-test
 journalctl -u ayumi-forward-test --since "2 min ago" | grep -i "error\|auth\|INVALID"
 
 # Token expiry updated
-grep CTRADER_OPENAPI_TOKEN_EXPIRES_AT /home/TacoPants/projects/Ayumi/.env
+grep CTRADER_OPENAPI_TOKEN_EXPIRES_AT $AYUMI_ROOT/.env
 ```
 
 ---

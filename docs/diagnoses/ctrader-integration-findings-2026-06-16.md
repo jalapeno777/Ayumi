@@ -2,7 +2,7 @@
 
 **Date:** 2026-06-16
 **Author:** Ava
-**Status:** Verified against live demo account 46877902
+**Status:** Verified against live demo account REDACTED_CTRADER_ACCOUNT
 **BQ:** BQ-1043 / BQ-1042
 
 ---
@@ -14,7 +14,7 @@
 ### The Problem
 The cTrader Open API `volume` field in `ProtoOANewOrderReq` is **NOT in lots**. It's in **units of the base asset**, scaled by the symbol's `lotSize` field.
 
-### What the Symbol Spec Says (GBPUSD on demo 46877902)
+### What the Symbol Spec Says (GBPUSD on demo REDACTED_CTRADER_ACCOUNT)
 ```
 lotSize = 10,000,000   (10M — NOT the standard 100K)
 minVolume = 100,000    (minimum tradeable volume in raw units)
@@ -171,7 +171,7 @@ from ctrader_open_api.messages.OpenApiMessages_pb2 import (
 
 ## Verified Trade Sequence
 
-On 2026-06-16 at 22:44 UTC, the following was verified on demo account 46877902:
+On 2026-06-16 at 22:44 UTC, the following was verified on demo account REDACTED_CTRADER_ACCOUNT:
 
 1. **TCP connect** to `demo.ctraderapi.com:5035` — ✓
 2. **Application auth** (client_id + client_secret) — ✓

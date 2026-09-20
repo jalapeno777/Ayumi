@@ -20,7 +20,7 @@ The forward test is managed by **systemd** via `ayumi-forward-test.service`:
 ```ini
 [Service]
 Type=simple
-User=TacoPants
+User=$USER
 ExecStart=.../python scripts/launch_blend_forward_test.py --symbols XAUUSD --only "Killzone Momentum" --live
 Restart=always
 RestartSec=30
@@ -60,7 +60,7 @@ pgrep -f launch_blend_forward_test && echo "RUNNING"
 pgrep -f ayumi_watchdog.py && echo "WATCHDOG_ACTIVE"
 
 # 3. Record current PID
-cat /home/TacoPants/projects/Ayumi/data/forward_test.pid
+cat $AYUMI_ROOT/data/forward_test.pid
 # Note this PID for comparison after restart
 
 # 4. Confirm markets are closed (if live instance)
@@ -71,7 +71,7 @@ cat /home/TacoPants/projects/Ayumi/data/forward_test.pid
 
 ```bash
 # Step 1: Get the current forward test PID
-FT_PID=$(cat /home/TacoPants/projects/Ayumi/data/forward_test.pid)
+FT_PID=$(cat $AYUMI_ROOT/data/forward_test.pid)
 echo "Forward test PID: $FT_PID"
 
 # Step 2: Kill the process (simulates crash)
@@ -97,11 +97,11 @@ done
 # Step 5: Verify recovery
 systemctl status ayumi-forward-test.service
 pgrep -f launch_blend_forward_test && echo "PROCESS_RUNNING"
-cat /home/TacoPants/projects/Ayumi/data/forward_test.pid
+cat $AYUMI_ROOT/data/forward_test.pid
 
 # Step 6: Check watchdog detected the event
 # Look for critical alert in events log
-tail -20 /home/TacoPants/projects/Ayumi/data/ayumi/events.jsonl | \
+tail -20 $AYUMI_ROOT/data/ayumi/events.jsonl | \
     python3 -c "import sys,json; [print(json.loads(l).get('severity',''),json.loads(l).get('claims','')) for l in sys.stdin]"
 ```
 
@@ -123,7 +123,7 @@ ls -la /tmp/ayumi-worker/heartbeat
 cat /tmp/ayumi-worker/heartbeat  # Should be recent timestamp
 
 # Check forward test logs for clean startup
-tail -30 /home/TacoPants/projects/Ayumi/logs/forward_test-stdout.log
+tail -30 $AYUMI_ROOT/logs/forward_test-stdout.log
 ```
 
 ## Test Result
@@ -162,5 +162,5 @@ A 30-second restart delay on a live trading system means:
 - Runbook: [stale-pid-file-blocks-restart.md](../runbooks/stale-pid-file-blocks-restart.md)
 - Parent incident: card `52bfcac3`
 - Service file: `/etc/systemd/system/ayumi-forward-test.service`
-- Watchdog: `/home/TacoPants/ayumi_watchdog.py`
+- Watchdog: `/home/$USER/ayumi_watchdog.py`
 - Restart script: `scripts/restart_forward_test.sh`

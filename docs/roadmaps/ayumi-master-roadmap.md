@@ -91,10 +91,10 @@ Build and run a profitable automated forex trading bot on the **FTMO 1-Step Stan
 ### Phase 0: Data Completeness (partially complete — expansion planned)
 > Goal: Fill data gaps for existing pairs AND plan new symbols for blend diversification.
 
-- [ ] **0.1** Download USDJPY tick data (Dukascopy Docker SDK, 2020-01 → present)
+- [x] **0.1** Download USDJPY tick data — DONE 2026-09-17 (79.19M ticks 2020-01→2026-09-15, Dukascopy bi5_gap_fill; evidence: card 75ad56c6, /tmp/usdjpy_import.log)
 - [x] **0.2** ~~Update GBPUSD data~~ — confirmed current (Jul 2026)
-- [ ] **0.3** Aggregate ticks → bars for USDJPY (M5, M15, H1, H4, D1)
-- [ ] **0.4** Validate data quality (gap analysis, tick density, spread sanity)
+- [x] **0.3** Aggregate ticks → bars for USDJPY — DONE 2026-09-17 (M1..D1 in ayumi_market.duckdb; M1 1,115,178 / M5 224,218 / M15 74,751 / M30 37,376 / H1 18,688 / H4 5,264 / D1 1,024 bars)
+- [x] **0.4** Validate data quality — DONE 2026-09-17 (health_check_tick_pipeline.py OK; qa_market_data.py exit 0, report reports/qa-report-2026-09-17.md; only 8 weekday gaps in 584 day-CSVs, all market holidays)
 - [ ] **0.5** Download Dukascopy crisis period data (2020-03 COVID, 2022-02 Ukraine) for stress testing
 - [ ] **0.6** Expand symbol coverage for blend diversification (post-FTMO baseline):
   - Priority candidates: AUDUSD, USDCHF, NZDUSD (carry-trade diversification)

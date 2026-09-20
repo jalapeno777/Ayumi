@@ -129,7 +129,7 @@ Reasoning:
 1. Close `2893597d` flag-deletion FINDING (Tsukasa card, ~0.5 SP)
 2. Close `2c5d684a` TP/SL live-fire verification (operator action on broker — 0.25 SP)
 3. Reconcile FTMO risk config (1-Step canonical, ~0.5 SP)
-4. Revise plan at `/home/TacoPants/projects/Ayumi/docs/plans/quest-ayumi-ftmo-2026-07-07.md` (~1 SP)
+4. Revise plan at `$AYUMI_ROOT/docs/plans/quest-ayumi-ftmo-2026-07-07.md` (~1 SP)
 5. Re-route revised plan to council for review-of-revision (3 reviewers, ~30 min)
 6. Decompose into sprint cards + dispatch
 

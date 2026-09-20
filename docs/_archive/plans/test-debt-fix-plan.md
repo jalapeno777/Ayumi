@@ -1,6 +1,6 @@
 # Test Debt Fix Plan — 82 Pre-Existing Test Failures
 
-**Repo:** `/home/TacoPants/projects/Ayumi/`  
+**Repo:** `$AYUMI_ROOT/`  
 **Branch:** `senior-dev/test-debt-fixes`  
 **Base:** `main` (clean)  
 **Generated:** 2026-06-26  

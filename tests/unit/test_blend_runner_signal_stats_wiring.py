@@ -39,7 +39,7 @@ from pathlib import Path
 
 import pytest
 
-WORKSPACE = Path("/home/TacoPants/projects/Ayumi")
+WORKSPACE = Path("$AYUMI_ROOT")
 # Tests run from the worktree directory (autodev/sigstats-dcc7817d).
 # The harness sets cwd to the worktree, so use Path.cwd() to find the
 # local src/ for the AST check below.

@@ -106,7 +106,7 @@
   ],
   "sqlite_attach": {
     "attached": true,
-    "db_path": "/home/TacoPants/projects/Ayumi/data/trading.db",
+    "db_path": "$AYUMI_ROOT/data/trading.db",
     "tables": [
       "_schema_version",
       "bars",

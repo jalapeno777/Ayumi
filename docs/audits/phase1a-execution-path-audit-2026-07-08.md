@@ -21,7 +21,7 @@ The task premise was that "66 signals generated, 0 trades executed, 2 signals_fa
 **There is no broken execution path.** The pipeline IS working — orders are being sent, filled at cTrader, and registered with risk. What IS broken is **observability**:
 
 1. **`data/forward_test_health.json` reads `paper_trader.trades_executed`** (always 0 in live mode) instead of `engine._live_fill_count`. The "0 trades" is a metric bug, not a trading failure.
-2. **`signal_stats.jsonl` is owned by `root:root` with mode `0600`** but the systemd service runs as `TacoPants:TacoPants`. Every signal-stats record attempt fails with `Permission denied` (cumulative `stats_fails=3` in the B5 log, every retry cycle since 00:00 UTC).
+2. **`signal_stats.jsonl` is owned by `root:root` with mode `0600`** but the systemd service runs as `$USER:$USER`. Every signal-stats record attempt fails with `Permission denied` (cumulative `stats_fails=3` in the B5 log, every retry cycle since 00:00 UTC).
 3. **Running engine is pre-c6f30c9 code** (TIMEOUT still bumps `signals_failed_live`). The session started at 01:32 UTC; the fix landed at 02:57 UTC; the service has not been restarted. This is why `signals_failed_live` is climbing instead of being flat at the post-reconciliation value.
 
 The actual trading problem is different: **the daily risk budget is exhausted by open positions, so 65 of 67 new signals are rejected by the blend sizer before live execution**. Combined with **cTrader connection cycling every ~15 minutes** (`authenticated → degraded → reconnecting`), every order submission hits TIMEOUT synchronously — late-fill callbacks confirm 8 of 10 fills after the fact.
@@ -186,9 +186,9 @@ acct_authenticating → authenticated        reason=reconnect_complete
 
 ### 5.2 Signal stats file permission
 **File:** `data/signal_stats.jsonl` — `-rw------- 1 root root 887606 Jul 8 05:04`  
-**Systemd runs as:** `User=TacoPants Group=TacoPants` (from `/etc/systemd/system/ayumi-forward-test.service`).
+**Systemd runs as:** `User=$USER Group=$USER` (from `/etc/systemd/system/ayumi-forward-test.service`).
 
-**30 "Permission denied: 'data/signal_stats.jsonl'" entries** since 00:00 UTC. Every retry attempt fails. The file was created/written by a root process (likely an earlier session or a test fixture). **Fix:** `sudo chown TacoPants:TacoPants /home/TacoPants/projects/Ayumi/data/signal_stats.jsonl`.
+**30 "Permission denied: 'data/signal_stats.jsonl'" entries** since 00:00 UTC. Every retry attempt fails. The file was created/written by a root process (likely an earlier session or a test fixture). **Fix:** `sudo chown $USER:$USER $AYUMI_ROOT/data/signal_stats.jsonl`.
 
 ### 5.3 SL/TP amendment timeouts
 **File:** `src/forex-bot/adapters/ctrader/open_api_spot_feed.py:1014-1083` (`amend_order` / TP2/TP3 ratchet)
@@ -261,7 +261,7 @@ This is upstream of Ayumi — cTrader Open API behavior on demo, or possibly net
 
 Two distinct issues that make the system LOOK broken when it's not:
 1. `trades_executed` writes from `paper_trader` in live mode → always 0. Should use `_live_fill_count` in live mode.
-2. `signal_stats.jsonl` owned by root → service can't write stats. Should be TacoPants-owned.
+2. `signal_stats.jsonl` owned by root → service can't write stats. Should be $USER-owned.
 
 ---
 
@@ -281,7 +281,7 @@ Two distinct issues that make the system LOOK broken when it's not:
 
 4. **Running engine is pre-c6f30c9** (started 01:32 UTC; fix landed 02:57 UTC; never restarted). This is why `signals_failed_live=3` instead of the post-reconciliation value of 2 — every TIMEOUT outcome still bumps `signals_failed_live` in the old code path. The late-fill reconciliation in `forward_test_engine.py:1789` decrements it on confirmed FILLED late fills. Restart needed to pick up the fix.
 
-5. **Two observability bugs AND one latent functional bug:** `signal_stats.jsonl` is owned by `root:root` (mode 0600) so the systemd service (TacoPants) can't write to it (30 Permission-denied errors); `trades_executed` JSON field always reads paper_trader; AND in live mode `register_position_mapping` is never called because the engine's `_on_trade_executed` only fires from the paper_trader's callback chain. The first two are observability noise; the third is a real bug that will cause risk-slot leaks the moment a live position closes (currently `total_trades: 0`). Additionally: cTrader connection cycles every ~15 minutes (`authenticated → degraded → reconnecting`); this is broker-side but contributes to the TIMEOUT-cascade pattern.
+5. **Two observability bugs AND one latent functional bug:** `signal_stats.jsonl` is owned by `root:root` (mode 0600) so the systemd service ($USER) can't write to it (30 Permission-denied errors); `trades_executed` JSON field always reads paper_trader; AND in live mode `register_position_mapping` is never called because the engine's `_on_trade_executed` only fires from the paper_trader's callback chain. The first two are observability noise; the third is a real bug that will cause risk-slot leaks the moment a live position closes (currently `total_trades: 0`). Additionally: cTrader connection cycles every ~15 minutes (`authenticated → degraded → reconnecting`); this is broker-side but contributes to the TIMEOUT-cascade pattern.
 
 ---
 
@@ -295,7 +295,7 @@ Two distinct issues that make the system LOOK broken when it's not:
 
 1. **Fix the JSON `trades_executed` source** — `launch_blend_forward_test.py:611` should branch on `_live_mode` and read `engine._live_fill_count` plus derive closed-trade count from `_on_position_closed` callbacks. Track `_live_fills_total` and `_live_closes_total` as persisted state.
 
-2. **chown the signal_stats file** — `sudo chown TacoPants:TacoPants /home/TacoPants/projects/Ayumi/data/signal_stats.jsonl`. Better: detect the mismatch at startup and log a clear warning instead of silently failing 3 retries.
+2. **chown the signal_stats file** — `sudo chown $USER:$USER $AYUMI_ROOT/data/signal_stats.jsonl`. Better: detect the mismatch at startup and log a clear warning instead of silently failing 3 retries.
 
 3. **Restart ayumi-forward-test after c6f30c9 to pick up the TIMEOUT split.** Verify the post-restart `signals_failed_live` does NOT increment for pure TIMEOUTs.
 

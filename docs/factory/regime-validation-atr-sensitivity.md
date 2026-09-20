@@ -1,7 +1,7 @@
 # Strategy Factory Phase 0 — ATR Sensitivity Sweep
 
 **Generated:** 2026-08-05T09:31:49.129034+00:00
-**DuckDB:** `/home/TacoPants/projects/Ayumi/data/ayumi_market.duckdb`
+**DuckDB:** `$AYUMI_ROOT/data/ayumi_market.duckdb`
 **MTF mode:** `hard`
 **⚠️ Diagnostic only** — this sweep does **not** modify the ≥70% validation gate.  Its purpose is to surface how combined conceptual accuracy moves with ``volatile_atr_pct`` so Rin / Ava can spot threshold sensitivities without re-running the factory dispatch.  Tuning on validation events is forbidden by AC 0.2 (overfitting).
 

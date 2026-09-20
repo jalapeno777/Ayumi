@@ -13,7 +13,7 @@
 
 set -uo pipefail
 
-LOG_DIR="${1:-/home/TacoPants/projects/Ayumi/logs}"
+LOG_DIR="${1:-$AYUMI_ROOT/logs}"
 STDERR_LOG="$LOG_DIR/forward_test-stderr.log"
 ARCHIVE_DIR="$LOG_DIR/stderr-archive"
 KEEP="${STDERR_ARCHIVE_KEEP:-30}"

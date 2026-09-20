@@ -13,7 +13,7 @@ import os
 import sys
 from pathlib import Path
 
-PROJECT_ROOT = Path("/home/TacoPants/projects/Ayumi")
+PROJECT_ROOT = Path("$AYUMI_ROOT")
 sys.path.insert(0, str(PROJECT_ROOT / "src" / "forex-bot"))
 
 from dotenv import load_dotenv
@@ -146,5 +146,5 @@ async def main():
 
 if __name__ == "__main__":
     if os.geteuid() == 0:
-        sys.exit("Refusing to run as root. Run as TacoPants.")
+        sys.exit("Refusing to run as root. Run as $USER.")
     asyncio.run(main())

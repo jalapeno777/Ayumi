@@ -4,7 +4,7 @@
 |---|---|
 | **Card** | `db04d5b5-e6b0-4fb8-9038-3cbf11e4dd00` |
 | **Sprint** | `reina-2026-09-13-skills-process` (cross-scope: Ayumi tournament) |
-| **Worktree** | `/home/TacoPants/projects/Ayumi/.worktrees/reina-db04d5b5-tournament-scaffold` |
+| **Worktree** | `$AYUMI_ROOT/.worktrees/reina-db04d5b5-tournament-scaffold` |
 | **Branch** | `reina/db04d5b5-tournament-scaffold` |
 | **Tracking** | `origin/main` (HEAD before build: `e275d0d9`) |
 | **Builder** | Tsubaki (subagent depth 1/5) |
@@ -63,7 +63,7 @@ $ python3 scripts/run_tournament.py --smoke
 ========================================================================
   Window:      2024-06-03 → 2024-06-09  (120 bars)
   Symbol/TF:   USDJPY/H1
-  Source:      /home/TacoPants/projects/Ayumi/data/ayumi_market.duckdb
+  Source:      $AYUMI_ROOT/data/ayumi_market.duckdb
   bb_rsi_reversion             signals=   0   trades=   0
   srmr_plus                    signals=   0   trades=   0
 
@@ -259,7 +259,7 @@ DEPENDENCIES_INTRODUCED: 0 (pure stdlib + already-installed duckdb/pandas/tabula
 DELEG-REF: db04d5b5-e6b0-4fb8-9038-3cbf11e4dd00
 CARD_ID: db04d5b5-e6b0-4fb8-9038-3cbf11e4dd00
 SPRINT: ayumi-tournament-scaffold 2026-09-13
-WORKTREE: /home/TacoPants/projects/Ayumi/.worktrees/reina-db04d5b5-tournament-scaffold
+WORKTREE: $AYUMI_ROOT/.worktrees/reina-db04d5b5-tournament-scaffold
 WORKTREE_BRANCH: reina/db04d5b5-tournament-scaffold
 ORIGIN_HEAD: e275d0d9 (origin/main)
 TESTED_ON: Linux 6.8.0-138-generic / python3.12 / duckdb 1.x / pandas 2.x

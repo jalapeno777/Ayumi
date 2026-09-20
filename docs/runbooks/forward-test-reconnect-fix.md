@@ -236,7 +236,7 @@ systemctl --user restart ayumi-forward-test.service
 
 ```bash
 # Check current token validity
-source /home/TacoPants/projects/Ayumi/.env
+source $AYUMI_ROOT/.env
 curl -s -X POST https://openapi.ctrader.com/apps/token \
   -d "grant_type=refresh_token&refresh_token=$CTRADER_OPENAPI_REFRESH_TOKEN&client_id=$CTRADER_OPENAPI_CLIENT_ID&client_secret=$CTRADER_OPENAPI_CLIENT_SECRET"
 

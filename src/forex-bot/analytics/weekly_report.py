@@ -288,20 +288,20 @@ class WeeklyAnalytics:
 #
 # Defaults match ``daily_report.main`` so both crons share the same root.
 
-DEFAULT_PROJECT_ROOT = Path("/home/TacoPants/projects/Ayumi")
+DEFAULT_PROJECT_ROOT = Path("$AYUMI_ROOT")
 
 
 def _resolve_runtime_identity() -> tuple[int, int, str, str] | None:
     """Return (uid, gid, user, group) for the expected runtime owner.
 
     Mirrors ``remediation_actions._resolve_runtime_identity``: defaults to
-    TacoPants:TacoPants, overridable via ``AYUMI_RUNTIME_USER`` /
+    $USER:$USER, overridable via ``AYUMI_RUNTIME_USER`` /
     ``AYUMI_RUNTIME_GROUP``. Returns None if the user can't be resolved.
     """
     import grp as _grp
     import pwd as _pwd
 
-    user_name = os.environ.get("AYUMI_RUNTIME_USER", "TacoPants")
+    user_name = os.environ.get("AYUMI_RUNTIME_USER", "$USER")
     group_name = os.environ.get("AYUMI_RUNTIME_GROUP", user_name)
     try:
         uid = _pwd.getpwnam(user_name).pw_uid
@@ -358,7 +358,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--project-root",
         default=None,
-        help="Project root used to resolve defaults (default: /home/TacoPants/projects/Ayumi).",
+        help="Project root used to resolve defaults (default: $AYUMI_ROOT).",
     )
     parser.add_argument(
         "--reports-root",

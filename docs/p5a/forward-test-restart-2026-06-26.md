@@ -13,7 +13,7 @@
 - **Uptime at verification:** 2h 57min (active and stable)
 
 ## Post-Restart Verification (12:30 EDT / 16:30 UTC)
-- **Process:** Running as TacoPants (not root) ✓
+- **Process:** Running as $USER (not root) ✓
 - **Memory:** 145.6M (well within limits) ✓
 - **Kill switch:** Still active, mode=kill ✓
 - **.env:** Unchanged (md5 matches) ✓

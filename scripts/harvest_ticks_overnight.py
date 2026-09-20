@@ -24,7 +24,7 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 # ── Config ──────────────────────────────────────────────────────────────────
-OUTPUT_DIR = Path("/home/TacoPants/projects/Ayumi/tools/dukascopy-harvester/output")
+OUTPUT_DIR = Path("$AYUMI_ROOT/tools/dukascopy-harvester/output")
 LOG_FILE = OUTPUT_DIR.parent / "overnight_rest_log.txt"
 PROGRESS_FILE = OUTPUT_DIR.parent / "overnight_rest_progress.json"
 

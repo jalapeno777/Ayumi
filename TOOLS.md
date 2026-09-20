@@ -3,8 +3,8 @@
 ## Development
 - Python: `src/forex-bot/`
 - Tests: `pytest tests/ -q`
-- Shared venv: `/home/TacoPants/projects/Ayumi/.venv`
-- Activate: `source /home/TacoPants/projects/Ayumi/.venv/bin/activate`
+- Shared venv: `$AYUMI_ROOT/.venv`
+- Activate: `source $AYUMI_ROOT/.venv/bin/activate`
 
 ## Git
 - Sync: `git fetch origin && git rebase main`

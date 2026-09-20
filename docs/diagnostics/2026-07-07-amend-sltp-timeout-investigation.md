@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-07 (log evidence: 2026-07-08 00:00–02:09 EDT)
 **Author:** Ava (subagent, depth 1/1)
-**Workspace:** /home/TacoPants/projects/Ayumi
+**Workspace:** $AYUMI_ROOT
 **Repo state:** main, 7 commits ahead of origin/main, working tree clean
 
 ---

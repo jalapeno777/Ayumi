@@ -352,15 +352,15 @@ These risks are **theoretical only** under the "keep as-is" recommendation.
 
 | Source | Path | Use |
 |--------|------|-----|
-| Strategy source | `/home/TacoPants/projects/Ayumi/src/forex-bot/strategies/srmr_plus.py` | Filter logic, line 202-208 |
-| Session constants | `/home/TacoPants/projects/Ayumi/src/forex-bot/config/sessions.py:79-86` | Hour ranges |
-| Validated config | `/home/TacoPants/projects/Ayumi/src/forex-bot/config/strategies.yaml` (entry `srmr_xauusd_m15`) | Optuna params |
-| Backtest report | `/home/TacoPants/projects/Ayumi/reports/srmr_plus/srmr_plus_multi_pair_M15_20260708_1238.json` | Walk-forward aggregated metrics |
-| Backtest report (alt) | `/home/TacoPants/projects/Ayumi/reports/blend-walkforward-2026-08-01/srmr_plus_focused_results.jsonl` | Per-window summary |
-| Forward-test signals | `/home/TacoPants/projects/Ayumi/data/signal_stats.jsonl` | Hour-of-day for live signals |
-| Historical M15 bars | `/home/TacoPants/projects/Ayumi/data/forex/historical/XAUUSD_M15.csv` | Volatility/volume profile by hour, simulation |
-| Prior research | `/home/TacoPants/projects/Ayumi/docs/research/strategy-optimization-research.md` (§A.5 — srmr_plus tuning) | Context for config rationale |
-| WF revalidation | `/home/TacoPants/projects/Ayumi/docs/forex/wf-revalidation-2026-07/srmrplus_wf_XAUUSD.json` | Per-window aggregated stats, regime labels |
+| Strategy source | `$AYUMI_ROOT/src/forex-bot/strategies/srmr_plus.py` | Filter logic, line 202-208 |
+| Session constants | `$AYUMI_ROOT/src/forex-bot/config/sessions.py:79-86` | Hour ranges |
+| Validated config | `$AYUMI_ROOT/src/forex-bot/config/strategies.yaml` (entry `srmr_xauusd_m15`) | Optuna params |
+| Backtest report | `$AYUMI_ROOT/reports/srmr_plus/srmr_plus_multi_pair_M15_20260708_1238.json` | Walk-forward aggregated metrics |
+| Backtest report (alt) | `$AYUMI_ROOT/reports/blend-walkforward-2026-08-01/srmr_plus_focused_results.jsonl` | Per-window summary |
+| Forward-test signals | `$AYUMI_ROOT/data/signal_stats.jsonl` | Hour-of-day for live signals |
+| Historical M15 bars | `$AYUMI_ROOT/data/forex/historical/XAUUSD_M15.csv` | Volatility/volume profile by hour, simulation |
+| Prior research | `$AYUMI_ROOT/docs/research/strategy-optimization-research.md` (§A.5 — srmr_plus tuning) | Context for config rationale |
+| WF revalidation | `$AYUMI_ROOT/docs/forex/wf-revalidation-2026-07/srmrplus_wf_XAUUSD.json` | Per-window aggregated stats, regime labels |
 
 ### Methodology
 
@@ -414,8 +414,8 @@ These risks are **theoretical only** under the "keep as-is" recommendation.
 
 ```python
 import sys
-sys.path.insert(0, '/home/TacoPants/projects/Ayumi/src')
-sys.path.insert(0, '/home/TacoPants/projects/Ayumi/src/forex-bot')
+sys.path.insert(0, '$AYUMI_ROOT/src')
+sys.path.insert(0, '$AYUMI_ROOT/src/forex-bot')
 
 import pandas as pd
 from collections import Counter
@@ -424,7 +424,7 @@ import strategies.srmr_plus as smod
 from core.types import Bar, MarketState
 
 cfg = load_srmr_config_from_yaml('XAUUSD', timeframe='M15')
-df = pd.read_csv('/home/TacoPants/projects/Ayumi/data/forex/historical/XAUUSD_M15.csv')
+df = pd.read_csv('$AYUMI_ROOT/data/forex/historical/XAUUSD_M15.csv')
 df['Date'] = pd.to_datetime(df['Date'])
 
 bars = [Bar(time=r['Date'].to_pydatetime(), open=r['Open'], high=r['High'],

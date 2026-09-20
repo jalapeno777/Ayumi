@@ -33,7 +33,7 @@ while [[ $# -gt 0 ]]; do
 done
 set -- "${PARSED_ARGS[@]}"
 
-cd /home/TacoPants/projects/Ayumi
+cd $AYUMI_ROOT
 source .venv/bin/activate
 
 export MAX_CPU

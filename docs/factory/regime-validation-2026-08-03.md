@@ -1,7 +1,7 @@
 # Strategy Factory Phase 0 — Regime Detector Validation
 
 **Generated:** 2026-08-03T02:02:12.158046+00:00
-**DuckDB:** `/home/TacoPants/projects/Ayumi/data/ayumi_market.duckdb`
+**DuckDB:** `$AYUMI_ROOT/data/ayumi_market.duckdb`
 **Detector config:** adx_period=14, atr_period=14, atr_lookback=50, trending_adx=25.0, choppy_adx=20.0, volatile_atr_pct=0.8, quiet_atr_pct=0.2
 **Warm-up bars skipped:** 64 (ADX needs 29, ATR percentile needs 64)
 **Conceptual ground truth thresholds:** VOLATILE = realised-vol pctl > 0.80, TRENDING = rolling R² (close vs bar index, 50-bar lookback) upper tercile (> 0.6667). Both metrics are computed on the warm-up-sliced slice and are independent of the detector's ADX/ATR internals.

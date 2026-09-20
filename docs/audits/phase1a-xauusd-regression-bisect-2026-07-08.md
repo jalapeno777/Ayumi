@@ -177,7 +177,7 @@ hard_cap_sl_pips: 25.0
 ## 7. Bisect reproducibility — how to verify
 
 ```bash
-cd /home/TacoPants/projects/Ayumi
+cd $AYUMI_ROOT
 source .venv/bin/activate
 
 # Default config (matches Jul 3 report)

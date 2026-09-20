@@ -266,5 +266,5 @@ Phase 0 (pre-quest gate) ──→ 1A (arch + execution audit) ────┐
 
 *Revised 2026-07-08 00:10 EDT per Craig approval of recommended path.*
 *Review files: `/root/.openclaw/council-workspace/data/{sora,kaito,rei}-reviews/quest-ayumi-ftmo-2026-07-07.md`*
-*Synthesis: `/home/TacoPants/projects/Ayumi/docs/plans/quest-ayumi-ftmo-reviews-synthesis-2026-07-08.md`*
+*Synthesis: `$AYUMI_ROOT/docs/plans/quest-ayumi-ftmo-reviews-synthesis-2026-07-08.md`*
 *v1 backup: `quest-ayumi-ftmo-2026-07-07-draft-v1.md`*

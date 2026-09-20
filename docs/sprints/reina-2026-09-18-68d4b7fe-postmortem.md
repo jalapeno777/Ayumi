@@ -63,7 +63,7 @@ models_used: [zai/glm-5.3]
 test_status: pass
 time_started: "2026-09-18T13:15:00Z"
 time_completed: "2026-09-18T13:50:00Z"
-repo: /home/TacoPants/projects/Ayumi
+repo: $AYUMI_ROOT
 worktree: .worktrees/68d4b7fe-stderr
 branch: reina/68d4b7fe-stderr-archival
 commit: 6fc944af

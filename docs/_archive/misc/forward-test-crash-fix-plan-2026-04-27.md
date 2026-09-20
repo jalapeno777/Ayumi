@@ -162,7 +162,7 @@ Also change `shutdown()` to use `sys.exit(1)` on failure instead of `sys.exit(0)
 
 ### Step 1: Verify logging fix
 ```bash
-cd /home/TacoPants/projects/Ayumi
+cd $AYUMI_ROOT
 source .venv/bin/activate
 python -c "
 import logging, sys
@@ -177,7 +177,7 @@ logger.info('TEST: ayumi.forward_test logger works')
 
 ### Step 2: Verify quote credentials
 ```bash
-cd /home/TacoPants/projects/Ayumi
+cd $AYUMI_ROOT
 source .venv/bin/activate
 python -c "
 import os; from dotenv import load_dotenv; load_dotenv('.env')
@@ -189,7 +189,7 @@ print(f'sender_sub_id will be: {repr(ssid)}')
 
 ### Step 3: Run the forward test
 ```bash
-cd /home/TacoPants/projects/Ayumi
+cd $AYUMI_ROOT
 source .venv/bin/activate
 python scripts/launch_blend_forward_test.py 2>&1 | tee /tmp/blend-test-debug.log
 ```

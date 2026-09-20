@@ -1,7 +1,7 @@
 # P5A-TEST-MOD: Test Modularization Plan (v2 — Revised)
 
 **Card:** `adb55aac` — P5A-TEST-MOD — Test modularization audit + split  
-**Repo:** `/home/TacoPants/projects/Ayumi/`  
+**Repo:** `$AYUMI_ROOT/`  
 **Main HEAD:** `f87e181fe569ca178423a27c60dfa016eb500974`  
 **Generated:** 2026-06-26  
 **Planner:** Autobuild Stage 1 subagent  
@@ -257,7 +257,7 @@ All tasks use `git mv` for moves. No test logic is modified — only file locati
 ```bash
 #!/usr/bin/env bash
 set -euo pipefail
-REPO=/home/TacoPants/projects/Ayumi
+REPO=$AYUMI_ROOT
 cd "$REPO"
 
 usage() {

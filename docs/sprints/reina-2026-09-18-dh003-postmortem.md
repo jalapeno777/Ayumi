@@ -34,7 +34,7 @@ from "writer dead" (real failure).
 
 ## BUILD-METADATA
 - card_id: 16bb9977-05f3-4a87-b892-20b8f3cfb6df
-- repo: /home/TacoPants/projects/Ayumi
+- repo: $AYUMI_ROOT
 - worktree: .worktrees/reina-16bb9977-dh003
 - branch: reina/16bb9977-dh003
 - commit: 3f99a60a8a2f963807750bf28a0ce2c2c6775657

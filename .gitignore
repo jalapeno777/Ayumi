@@ -199,3 +199,23 @@ reports/disk-cleanup-*/
 # Archive directories that are operational/diagnostic (not source)
 archive/disk-cleanup-*/
 archive/poisoned-state-*/
+
+# agent-local / runtime artifacts — never track
+memory/
+agents/
+audit/
+AGENTS.md
+HEARTBEAT.md
+SOUL.md
+data/cache/
+data/crypto/
+data/health/
+data/learning/
+data/assessments/
+data/forex/dukascopy/
+tick_vault_data/
+reports/optuna_studies/
+src/forex-bot/data/
+data/forward_test_health*.json
+*.db-shm
+*.db-wal

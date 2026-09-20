@@ -35,7 +35,7 @@ logger = logging.getLogger("spike.gate0")
 
 from pathlib import Path
 
-ENV_PATH = Path("/home/TacoPants/projects/Ayumi/.env")
+ENV_PATH = Path("$AYUMI_ROOT/.env")
 
 
 def load_env(path: Path) -> dict[str, str]:

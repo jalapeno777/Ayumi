@@ -3,7 +3,7 @@
 **Card:** [AYUMI] TP/SL chain trace — find where TP/SL gets lost (read-only)
 **Parent:** b6372ce8 — Implement and verify TP/SL placement on live positions
 **Scope:** read-only investigation, no code changes
-**Workspace:** /home/TacoPants/projects/Ayumi (main branch, uncommitted doc only)
+**Workspace:** $AYUMI_ROOT (main branch, uncommitted doc only)
 
 ---
 

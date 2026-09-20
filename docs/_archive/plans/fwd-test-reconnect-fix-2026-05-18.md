@@ -11,7 +11,7 @@
 
 Two issues in the forward test:
 
-1. **PID file permission race** — root-launched process creates PID file that TacoPants systemd can't open read-write
+1. **PID file permission race** — root-launched process creates PID file that $USER systemd can't open read-write
 2. **Connection cascade** — dual reconnection mechanisms leak orphaned `Client` objects, each reconnecting independently, creating 20+ TCP connections that cTrader kills, triggering more disconnects
 
 ---
@@ -22,9 +22,9 @@ Two issues in the forward test:
 
 **File:** `src/forex-bot/adapters/ctrader/pid_guard.py` lines 67 and 165
 
-`os.open(str(self._path), os.O_RDWR | os.O_CREAT, 0o644)` — the `0o644` mode only applies on *creation*. When a root process creates the file (mode `rw-r--r--`, owner root), a subsequent TacoPants process cannot open it `O_RDWR` because group/other only have read permission.
+`os.open(str(self._path), os.O_RDWR | os.O_CREAT, 0o644)` — the `0o644` mode only applies on *creation*. When a root process creates the file (mode `rw-r--r--`, owner root), a subsequent $USER process cannot open it `O_RDWR` because group/other only have read permission.
 
-The primary cause is running the forward test manually as root while systemd manages it as TacoPants. But the PID guard should be resilient to this — a root-created stale PID file shouldn't permanently block the TacoPants service.
+The primary cause is running the forward test manually as root while systemd manages it as $USER. But the PID guard should be resilient to this — a root-created stale PID file shouldn't permanently block the $USER service.
 
 **Fix:** Change file creation mode from `0o644` to `0o666` in both `_acquire()` and `_force_clear_stale()`.
 
@@ -159,7 +159,7 @@ fd = os.open(str(path), os.O_RDWR | os.O_CREAT, 0o666)
 kill 3308885
 
 # Clean up any stale PID file
-rm -f /home/TacoPants/projects/Ayumi/data/forward_test.pid
+rm -f $AYUMI_ROOT/data/forward_test.pid
 
 # Verify systemd picks it up cleanly
 systemctl status ayumi-forward-test
@@ -180,7 +180,7 @@ systemctl status ayumi-forward-test
 
 1. **AC1 — No connection leak:** After fix, `ss -tnp | grep <pid> | grep ctraderapi | wc -l` shows exactly 1 TCP connection (2 at most during reconnect transition)
 2. **AC2 — Clean reconnect:** On disconnect, logs show exactly one reconnect cycle: `Disconnected → Connected → Re-authenticated → Re-subscribed`. No repeated `Disconnected: ConnectionDone` every 2-4 seconds.
-3. **AC3 — PID guard resilient:** After a root-created PID file exists, TacoPants process can acquire the lock without PermissionError
+3. **AC3 — PID guard resilient:** After a root-created PID file exists, $USER process can acquire the lock without PermissionError
 4. **AC4 — Existing tests pass:** `pytest tests/ -q` — all existing tests green
 5. **AC5 — Feed remains functional:** Ticks continue flowing after a reconnect; no tick gap > 30 seconds during market hours after a single reconnect
 6. **AC6 — Forward test engine watchdog still works:** Engine-level `_attempt_reconnect()` (stale tick detection) continues to function — it calls `feed.stop()` + `_start_market_feed()` which creates a fresh `OpenApiSpotFeed`, unrelated to the feed-internal reconnect

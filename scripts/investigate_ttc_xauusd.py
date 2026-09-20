@@ -511,7 +511,7 @@ def render_markdown(results: list) -> str:
     lines.append("")
     lines.append("**Card:** AYU-DEBT-TTC-ANOMALY  ")
     lines.append("**Generated:** automated investigation script  ")
-    lines.append("**Repo:** `/home/TacoPants/projects/Ayumi`")
+    lines.append("**Repo:** `$AYUMI_ROOT`")
     lines.append("")
     lines.append("## Context")
     lines.append("")

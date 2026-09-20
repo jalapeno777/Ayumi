@@ -55,7 +55,7 @@ The branches diverge only in P5A test organization.
 
 ### Test Audit
 
-The system Python lacked required packages and did not recognize `--timeout=30`; rerun with `/home/TacoPants/projects/Ayumi/.venv/bin/python3` succeeded.
+The system Python lacked required packages and did not recognize `--timeout=30`; rerun with `$AYUMI_ROOT/.venv/bin/python3` succeeded.
 
 Recovery branch:
 
@@ -97,7 +97,7 @@ Known P5A scope-out per Rei: `OpenApiSpotFeed.close_position()`, `cancel_order()
 
 ### Pre-Council Checklist Status
 
-Requested file `docs/plans/planner-pre-council-checklist.md` is not present in `/home/TacoPants/projects/Ayumi`. A repo search found no replacement checklist. I applied the checklist requirements embedded in the autobuild skill instead: primary-source read, data audit, scope and acceptance criteria, risk register, builder sizing, targeted validation, council review ask, and Craig approval gate. This absence should be logged as a process issue, not hidden.
+Requested file `docs/plans/planner-pre-council-checklist.md` is not present in `$AYUMI_ROOT`. A repo search found no replacement checklist. I applied the checklist requirements embedded in the autobuild skill instead: primary-source read, data audit, scope and acceptance criteria, risk register, builder sizing, targeted validation, council review ask, and Craig approval gate. This absence should be logged as a process issue, not hidden.
 
 ## Status of `183a996` and `c4c8e3e`
 
@@ -202,7 +202,7 @@ Do not run parquet/backtest/ML integration tests in the same step as cTrader liv
 Use the shared venv:
 
 ```bash
-/home/TacoPants/projects/Ayumi/.venv/bin/python3 -m pytest ...
+$AYUMI_ROOT/.venv/bin/python3 -m pytest ...
 ```
 
 Do not use system `python3` for validation; it lacks required packages and may not load pytest-timeout.
@@ -221,7 +221,7 @@ Sprint-close validation:
 3. Targeted safety suite:
 
 ```bash
-/home/TacoPants/projects/Ayumi/.venv/bin/python3 -m pytest \
+$AYUMI_ROOT/.venv/bin/python3 -m pytest \
   tests/adapters/ctrader/test_execution_permission.py \
   tests/adapters/ctrader/test_p5a_characterization.py \
   tests/adapters/ctrader/test_p5a_integration.py \
@@ -237,7 +237,7 @@ Sprint-close validation:
 4. One full suite at sprint close only:
 
 ```bash
-/home/TacoPants/projects/Ayumi/.venv/bin/python3 -m pytest tests/ -q --timeout=30
+$AYUMI_ROOT/.venv/bin/python3 -m pytest tests/ -q --timeout=30
 ```
 
 Expected closeout handling:
@@ -427,7 +427,7 @@ Acceptance criteria:
 - Tests pass:
 
 ```bash
-/home/TacoPants/projects/Ayumi/.venv/bin/python3 -m pytest \
+$AYUMI_ROOT/.venv/bin/python3 -m pytest \
   tests/adapters/ctrader/test_execution_permission.py \
   tests/adapters/ctrader/test_p5a_characterization.py \
   tests/adapters/ctrader/test_p5a_integration.py \
@@ -458,7 +458,7 @@ Acceptance criteria:
 - Tests pass:
 
 ```bash
-/home/TacoPants/projects/Ayumi/.venv/bin/python3 -m pytest \
+$AYUMI_ROOT/.venv/bin/python3 -m pytest \
   tests/test_kill_switch_auto.py \
   tests/test_resilience_integration.py \
   tests/test_forward_test_engine_wiring.py \
@@ -511,7 +511,7 @@ Acceptance criteria:
 - If the fixture is included, it has a clear P5A reason and passes:
 
 ```bash
-/home/TacoPants/projects/Ayumi/.venv/bin/python3 -m pytest tests/test_live_market_data_integration.py -v --timeout=30
+$AYUMI_ROOT/.venv/bin/python3 -m pytest tests/test_live_market_data_integration.py -v --timeout=30
 ```
 
 - If excluded, it remains unstaged and is listed as a separate cleanup item.

@@ -8,7 +8,7 @@ Background
         at src/forex-bot/forward_test/blend_runner.py:189 in start()
 
 Root cause (diagnosed in-worktree): the service runs from the MAIN tree
-(WorkingDirectory=/home/TacoPants/projects/Ayumi). Commit 823e5e29
+(WorkingDirectory=$AYUMI_ROOT). Commit 823e5e29
 ("fix(forward-test): periodic edge-telemetry state snapshot ...") landed
 directly on main at 13:29:29 UTC. During the direct main-tree edit window,
 systemd restarts imported blend_runner.py at an intermediate on-disk state

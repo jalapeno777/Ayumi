@@ -3,7 +3,7 @@
 **Date:** 2026-07-07 (log evidence: 2026-07-08 00:00–02:09 EDT)
 **Author:** Ava (subagent, depth 1/1)
 **Branch:** main (7 commits ahead of origin/main, working tree clean)
-**Workspace:** /home/TacoPants/projects/Ayumi
+**Workspace:** $AYUMI_ROOT
 **Card / ID:** inv-2026-07-07-signals-failed
 **Status:** Root cause confirmed; fix is a 2-line counter correction.
 
@@ -328,4 +328,4 @@ Reasoning:
 - ✅ `git log --oneline -10` confirmed — 7 commits ahead of origin/main, last commit `a1320cc docs(ayumi): Craig decisions logged in ICT/SMC architecture`.
 - ✅ All code quoted is from current sources (verified via `grep -n` and `read` with offset/limit).
 - ⚠️ `data/ops/subagent_failures.jsonl` and `data/learning/builder_failures.jsonl` referenced in the task brief do **not exist** in this workspace. The investigation proceeded without them; no prior failure pattern data was available to cross-reference.
-- ✅ Report written to `/home/TacoPants/projects/Ayumi/docs/diagnostics/2026-07-07-signals-failed-live-investigation.md`.
+- ✅ Report written to `$AYUMI_ROOT/docs/diagnostics/2026-07-07-signals-failed-live-investigation.md`.

@@ -4,7 +4,7 @@
   "agent": "tsubaki",
   "worker_session": "agent:tsubaki:main:heartbeat",
   "branch": "tsubaki/8849c670-market-hours",
-  "worktree": "/home/TacoPants/projects/Ayumi/.worktrees/tsubaki-8849c670-market-hours",
+  "worktree": "$AYUMI_ROOT/.worktrees/tsubaki-8849c670-market-hours",
   "commit": "7307192234d33dda6574ba2e221c100c214e67a0",
   "files_changed": [
     "tests/e2e/test_forward_test_engine_reconnect.py"

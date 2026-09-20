@@ -6,7 +6,7 @@
   "agent": "tsubaki",
   "worker_session": "agent:tsubaki:subagent:e2da3f20-3f49-467a-9770-bb0f6063ff45",
   "branch": "tsubaki/0b910897-deadline-owners",
-  "worktree": "/home/TacoPants/projects/Ayumi/.worktrees/tsubaki-0b910897-deadline-owners",
+  "worktree": "$AYUMI_ROOT/.worktrees/tsubaki-0b910897-deadline-owners",
   "phase": "post-implementation",
   "build_date": "2026-09-07T17:05Z",
   "iter1_commit": "f5e608ca",

@@ -26,7 +26,7 @@ print = functools.partial(print, flush=True)
 # Configuration
 # ---------------------------------------------------------------------------
 
-AYUMI_ROOT = Path("/home/TacoPants/projects/Ayumi")
+AYUMI_ROOT = Path("$AYUMI_ROOT")
 CSV_DIR = AYUMI_ROOT / "data" / "forex" / "historical"
 DB_PATH = AYUMI_ROOT / "data" / "ayumi_market.duckdb"
 REPORTS_DIR = AYUMI_ROOT / "reports"

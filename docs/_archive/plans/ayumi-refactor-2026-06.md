@@ -219,7 +219,7 @@ After extraction, this becomes an orchestrator:
 1. **No `.env` modification** — Builders never read or write `.env`. Credentials live in `data/.credentials`.
 2. **No `data/` writes** — Builders write only to `src/` and `tests/`. Runtime data files are created by production code.
 3. **No `logs/` writes** — Obvious.
-4. **File ownership** — All builder file writes must `chown TacoPants:TacoPants`. Enforced by wrapper script.
+4. **File ownership** — All builder file writes must `chown $USER:$USER`. Enforced by wrapper script.
 5. **Kill switch DI** — All tests that touch kill switch or risk guard must inject mocks. No default-path `KillSwitchManager()` in test code.
 
 ### Pre-Merge Checklist
@@ -402,7 +402,7 @@ switch contamination from stress-test entries.
 
 ## Open Questions
 
-- Should builders run as TacoPants instead of root? (Requires sudo config)
+- Should builders run as $USER instead of root? (Requires sudo config)
 - Should `data/.credentials` be encrypted at rest? (Overkill for now?)
 - Walk-forward period for signal validation — 6 months or 1 year?
 - **(Resolved 2026-06-22)** Should `token_state.json` exist? **No.** Disabled permanently.

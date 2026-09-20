@@ -207,6 +207,6 @@ Unknowns remaining:
 - Mypy run output: `/tmp/fte_mypy.txt` (211 lines, captured this session).
 - mypy version: 2.2.0 (compiled: yes) on Python 3.12.
 - HEAD: `bef7fd3f` on `main`.
-- Source repo: `/home/TacoPants/projects/Ayumi` (Ayumi, path verified HB#158).
+- Source repo: `$AYUMI_ROOT` (Ayumi, path verified HB#158).
 
 **Freshness:** mypy errors and config drift; re-validate on any merge to `main` touching `forward_test_engine.py`, `signal_adapter.py`, `market_data_feed.py`, or `mypy.ini`. Target next audit: 2026-09-13 or on next Ayumi live-trading sprint.

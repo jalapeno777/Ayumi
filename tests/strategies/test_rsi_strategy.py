@@ -10,7 +10,7 @@ Tests:
     7. StrategySignal fields are well-formed
 
 Run with:
-    cd /home/TacoPants/projects/Ayumi && source .venv/bin/activate \\
+    cd $AYUMI_ROOT && source .venv/bin/activate \\
       && python3 -m pytest tests/test_rsi_strategy.py -q --tb=short
 """
 

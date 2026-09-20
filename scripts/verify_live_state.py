@@ -9,7 +9,7 @@ system could have phantom positions (as it did pre-fix) and we'd never
 know.
 
 Usage:
-    cd /home/TacoPants/projects/Ayumi && source .venv/bin/activate
+    cd $AYUMI_ROOT && source .venv/bin/activate
     python scripts/verify_live_state.py
 """
 
