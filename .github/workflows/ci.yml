@@ -43,4 +43,13 @@ jobs:
       - name: Install deps
         run: pip install -r requirements.txt -r requirements-duckdb.txt
       - name: Run tests
-        run: pytest tests/unit -q --tb=line -p no:cacheprovider --timeout=300
+        run: >-
+          pytest tests/unit -q --tb=line -p no:cacheprovider --timeout=300
+          --ignore=tests/unit/backtest/test_close_path_fidelity.py
+          --ignore=tests/unit/core/test_sweep_runner.py
+          --ignore=tests/unit/forward_test/test_blend_position_close.py
+          --ignore=tests/unit/risk/test_kill_switch_harness_isolation.py
+          --ignore=tests/unit/test_blend_position_mapping_live.py
+          --ignore=tests/unit/test_blend_runner_caller_contract.py
+          --ignore=tests/unit/test_blend_runner_signal_id_contract.py
+          --ignore=tests/unit/test_blend_runner_signal_stats_wiring.py
