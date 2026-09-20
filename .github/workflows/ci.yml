@@ -32,7 +32,7 @@ jobs:
 
   lint-test:
     runs-on: ubuntu-latest
-    needs: scan-and-lint
+    needs: secret-scan
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
