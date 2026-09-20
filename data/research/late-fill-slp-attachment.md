@@ -1,7 +1,7 @@
 # R&D: Late-fill → SL attachment gap & TP ratchet miss (thin-liquidity XAUUSD)
 
 **Card:** dfb095b1-e835-4ae8-81f9-0e665c34ebc9 (Reina, 2026-09-17 UTC)
-**Repo:** /home/TacoPants/projects/Ayumi — read-only research; no code changes.
+**Repo:** $AYUMI_ROOT — read-only research; no code changes.
 
 ## Evidence base and a hard limitation
 

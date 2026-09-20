@@ -219,3 +219,4 @@ src/forex-bot/data/
 data/forward_test_health*.json
 *.db-shm
 *.db-wal
+data/tournament/
