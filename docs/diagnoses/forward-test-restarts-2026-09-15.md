@@ -10,8 +10,8 @@ The `ayumi-forward-test.service` restart counter was at **11** as of 2026-09-14 
 
 `/etc/systemd/system/ayumi-forward-test.service`:
 
-- `Type=simple`, `User=TacoPants`
-- `ExecStart=/home/TacoPants/projects/Ayumi/.venv/bin/python scripts/launch_blend_forward_test.py --symbols XAUUSD --only "SRMR+" --live`
+- `Type=simple`, `User=$USER`
+- `ExecStart=$AYUMI_ROOT/.venv/bin/python scripts/launch_blend_forward_test.py --symbols XAUUSD --only "SRMR+" --live`
 - **`Restart=always`** — restarts on ANY exit (including exit 0)
 - `RestartSec=30`
 - `StartLimitIntervalSec=600`, `StartLimitBurst=10`
@@ -53,12 +53,12 @@ These two occurred before the `StartLimitIntervalSec=600` reset window elapsed a
 
 ### 5.1 Pre-burst state (process A)
 
-From `forward_test.log.2026-09-11` lines 3233–3247 (captured by the **rotated** daily `TimedRotatingFileHandler` log; the systemd-appended stderr file `/home/TacoPants/projects/Ayumi/logs/forward_test-stderr.log` only retains entries from 2026-09-15 00:00 onward and so does NOT cover this burst):
+From `forward_test.log.2026-09-11` lines 3233–3247 (captured by the **rotated** daily `TimedRotatingFileHandler` log; the systemd-appended stderr file `$AYUMI_ROOT/logs/forward_test-stderr.log` only retains entries from 2026-09-15 00:00 onward and so does NOT cover this burst):
 
 - 13:30:33 — `[B5 Periodic] ticks=117959 bars_built=63 signals=10 traded=1 eval_errors=0` — healthy
 - 13:30:34 — `Shutdown signal received (sig=15)` — clean SIGTERM
 - 13:30:34 — `OpenApiSpotFeed stopped`, `Forward test stopped: balance=10000.00 trades=0 pnl=0.00 errors=0 reconnects=0`
-- 13:30:34 — `PID file /home/TacoPants/projects/Ayumi/data/forward_test.pid removed`
+- 13:30:34 — `PID file $AYUMI_ROOT/data/forward_test.pid removed`
 - 13:30:35 — systemd `Deactivated successfully` → `Consumed 1min 59.882s CPU time`
 
 Process A exited cleanly via the script's signal-handling path. This was a **scheduled Restart=always cycle**, not a crash.
@@ -84,11 +84,11 @@ if not _stats_ok:
     sys.exit(2)
 ```
 
-**Most likely cause:** at 13:30:35, `data/signal_stats.jsonl` was foreign-owned (i.e. not uid 1000 / `TacoPants`). The systemd unit does not pass `--allow-foreign-uid` or set `AYUMI_ALLOW_FOREIGN_UID=1`, so the script self-aborted with exit 2.
+**Most likely cause:** at 13:30:35, `data/signal_stats.jsonl` was foreign-owned (i.e. not uid 1000 / `$USER`). The systemd unit does not pass `--allow-foreign-uid` or set `AYUMI_ALLOW_FOREIGN_UID=1`, so the script self-aborted with exit 2.
 
 **Evidence supporting this:**
 - The script's pre-launch guard fires before any other startup work (verified by reading lines 1924–1941).
-- Current `data/signal_stats.jsonl` (mtime 2026-09-15 00:18) is correctly owned by `TacoPants`/`uid 1000` — confirming the file *can* be self-healed to the right owner by the service itself once it starts. So if it WAS foreign-owned at 13:30:35, the file would have been re-touched (chowned) by the prior successful run, or by the next successful run after the burst.
+- Current `data/signal_stats.jsonl` (mtime 2026-09-15 00:18) is correctly owned by `$USER`/`uid 1000` — confirming the file *can* be self-healed to the right owner by the service itself once it starts. So if it WAS foreign-owned at 13:30:35, the file would have been re-touched (chowned) by the prior successful run, or by the next successful run after the burst.
 - The 2-second runtime is consistent with the foreign-UID guard exiting at line 1941 before any cTrader/feed/network work.
 
 ### 5.3 Anomaly: processes C–G (R2–R6, exit 1/FAILURE)
@@ -117,7 +117,7 @@ The 6th restart attempt had both state conditions cleared, so it started normall
 
 ### 5.5 Why it never recurred
 
-The service has run cleanly since 13:33:59, completing 5 more daily-cycle restarts (R7–R12) without any failure. If the foreign-UID state is the root cause, it must have been a one-time external event (a maintenance task, a backup restore, or a manual `chown` from root). The signal_stats.jsonl ownership has been stable on subsequent restarts (verified current mtime = 2026-09-15 00:18, owner = TacoPants).
+The service has run cleanly since 13:33:59, completing 5 more daily-cycle restarts (R7–R12) without any failure. If the foreign-UID state is the root cause, it must have been a one-time external event (a maintenance task, a backup restore, or a manual `chown` from root). The signal_stats.jsonl ownership has been stable on subsequent restarts (verified current mtime = 2026-09-15 00:18, owner = $USER).
 
 ## 6. Normal-Cycle Pattern (R7–R12)
 
@@ -145,7 +145,7 @@ The two short cycles (R10, R12) show no error trace in journalctl — they are c
 
 If this anomaly recurs (or to harden observability), the following is worth a small `[INFRA][BUILD]` card:
 
-- **Capture pre-restart stderr/journald into a per-restart artifact.** Today the systemd-appended `logs/forward_test-stderr.log` only retains entries from the current run; the rotated `forward_test.log.*` is the only pre-restart evidence, and only for the in-process logger. A simple fix: add `StandardError=append:/home/TacoPants/projects/Ayumi/logs/forward_test-stderr.log` (already present) PLUS a per-startup `ExecStartPre` that rotates/archives the previous file, OR pipe through `systemd-cat` so journald owns the full record (already the case for journalctl). The gap here is purely observability, not correctness.
+- **Capture pre-restart stderr/journald into a per-restart artifact.** Today the systemd-appended `logs/forward_test-stderr.log` only retains entries from the current run; the rotated `forward_test.log.*` is the only pre-restart evidence, and only for the in-process logger. A simple fix: add `StandardError=append:$AYUMI_ROOT/logs/forward_test-stderr.log` (already present) PLUS a per-startup `ExecStartPre` that rotates/archives the previous file, OR pipe through `systemd-cat` so journald owns the full record (already the case for journalctl). The gap here is purely observability, not correctness.
 
 Not implementing in this diagnosis to stay within the card's "do not edit live service files inline" scope.
 
@@ -159,7 +159,7 @@ Not implementing in this diagnosis to stay within the card's "do not edit live s
 | `scripts/launch_blend_forward_test.py:2030, 2155, 2242` | PID-guard `sys.exit(1)` and clean-shutdown `sys.exit(0)` |
 | `logs/forward_test.log.2026-09-11` lines 3233–3247, 3360–3395 | Pre-burst process A clean shutdown, post-recovery process G healthy start |
 | `logs/forward_test-stderr.log` (mtime 2026-09-15 15:36) | Confirms NO stderr coverage for Sep 11 burst (gap is the observability finding) |
-| `data/signal_stats.jsonl` (current) | Currently TacoPants:uid 1000 — confirms file *can* be self-healed; no live anomaly |
+| `data/signal_stats.jsonl` (current) | Currently $USER:uid 1000 — confirms file *can* be self-healed; no live anomaly |
 | `systemctl status ayumi-forward-test.service` at 2026-09-15 15:35 UTC | Service active, uptime 17h 39m, no failures since R12 |
 
 — end —
