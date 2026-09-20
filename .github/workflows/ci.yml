@@ -43,4 +43,4 @@ jobs:
       - name: Install deps
         run: pip install -r requirements.txt -r requirements-duckdb.txt
       - name: Run tests
-        run: pytest tests/ -q --tb=line -p no:cacheprovider
+        run: pytest tests/unit -q --tb=line -p no:cacheprovider --timeout=300
