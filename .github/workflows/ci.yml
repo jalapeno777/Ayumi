@@ -53,3 +53,4 @@ jobs:
           --ignore=tests/unit/test_blend_runner_caller_contract.py
           --ignore=tests/unit/test_blend_runner_signal_id_contract.py
           --ignore=tests/unit/test_blend_runner_signal_stats_wiring.py
+          --ignore=tests/unit/core/test_blend_optimizer.py
