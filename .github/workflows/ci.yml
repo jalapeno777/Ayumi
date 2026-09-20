@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 jobs:
-  scan-and-lint:
+  secret-scan:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -30,7 +30,7 @@ jobs:
       - name: Bandit security scan
         run: bandit -r src/ -ll --format txt
 
-  test:
+  lint-test:
     runs-on: ubuntu-latest
     needs: scan-and-lint
     steps:
